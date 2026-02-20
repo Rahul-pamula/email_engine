@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 import os
@@ -174,6 +174,22 @@ async def signup(request: SignupRequest):
         db.client.table("users").update({
             "last_login_at": datetime.utcnow().isoformat()
         }).eq("id", user_id).execute()
+        
+        # 7. Send email verification link
+        from services.email_service import send_email_verification
+        import secrets
+        
+        verify_token = secrets.token_hex(64)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        
+        db.client.table("email_verification_tokens").insert({
+            "user_id": user_id,
+            "token": verify_token,
+            "expires_at": expires_at.isoformat(),
+        }).execute()
+        
+        # Fire and forget sending email
+        await send_email_verification(request.email, verify_token)
         
         return AuthResponse(
             user_id=user_id,

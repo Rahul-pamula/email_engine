@@ -1,5 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import pandas as pd
 import io
 import uuid
@@ -20,13 +23,20 @@ logging.basicConfig(
 
 # Import route modules
 from fastapi.staticfiles import StaticFiles
-from routes import campaigns, webhooks, auth, onboarding, contacts, templates, assets
+from routes import campaigns, webhooks, auth, onboarding, contacts, templates, assets, password_reset
+
+# Rate limiter — uses client IP by default
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="Email Engine API",
     description="Ultimate Email Marketing Platform",
-    version="1.0.0"
+    version="1.5.0"
 )
+
+# Add rate limit exceeded handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Mount static files directory for assets
 # The directory "assets" will be served at /static/assets
@@ -50,6 +60,7 @@ app.include_router(onboarding.router)
 app.include_router(contacts.router)
 app.include_router(templates.router)
 app.include_router(assets.router)
+app.include_router(password_reset.router)  # Phase 1.5 — forgot/reset password
 
 
 class ContactCreate(BaseModel):
@@ -60,7 +71,19 @@ class ContactCreate(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint — monitored by company IT for uptime alerts."""
+    from utils.supabase_client import db
+    db_status = "unknown"
+    try:
+        db.client.table("tenants").select("id").limit(1).execute()
+        db_status = "connected"
+    except Exception:
+        db_status = "error"
+    return {
+        "status": "ok" if db_status == "connected" else "degraded",
+        "version": "1.5.0",
+        "db": db_status,
+    }
 
 from utils.supabase_client import db
 
