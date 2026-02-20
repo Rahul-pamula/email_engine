@@ -105,7 +105,7 @@ Each phase has TWO parts:
 ─────────────────────────────────────────
 �🏗 PHASE 1 — Foundation ✅ DONE
   [BACKEND]
-  ✔ Auth (Clerk JWT)
+  ✔ Auth (Supabase Auth)
   ✔ Multi-tenant isolation (RLS)
   ✔ Onboarding flow
   ✔ JWT middleware
@@ -116,8 +116,8 @@ Each phase has TWO parts:
   ✔ Onboarding wizard (org name, country, address)
   ✔ Sidebar navigation layout
 
-  NOTE: Forgot password page is broken (custom code bypasses Clerk).
-        Fix in Phase 1.5.
+  NOTE: Forgot password page is broken (currently unlinked/disabled).
+        Fix in Phase 1.5 using Supabase Auth flows.
 
 ─────────────────────────────────────────
 🏗 PHASE 1.5 — Auth Cleanup
@@ -132,9 +132,9 @@ Each phase has TWO parts:
       → Never log: actual email addresses, CSV rows, email HTML content ❌
 
   [FRONTEND]
-  ☐ Fix forgot-password page → use Clerk's useSignIn hook
-  ☐ Fix reset-password page → use Clerk's built-in flow
-  ☐ Enable Social Auth (Google) in Clerk Dashboard (no code needed)
+  ☐ Fix forgot-password page → use Supabase Auth built-in reset email flow
+  ☐ Fix reset-password page → complete Supabase Auth password update
+  ☐ Enable Social Auth (Google, GitHub) via Supabase Dashboard
   ☐ Test: sign up → verify email → login → forgot password → reset
   ☐ Audit log viewer (admin can see who deleted 10,000 contacts and when)
 
