@@ -1,0 +1,72 @@
+"""
+Batch Service Layer
+Manages import batch lifecycle: creation, listing, deletion.
+
+Batch Status Flow:
+  'processing' → 'completed' (success) or 'failed' (error)
+"""
+import uuid
+import logging
+from typing import Dict, List
+from utils.supabase_client import db
+
+logger = logging.getLogger("email_engine.batches")
+
+
+class BatchService:
+    @staticmethod
+    def create_batch(tenant_id: str, file_name: str, total_rows: int, imported_count: int) -> str:
+        """
+        Create a new import batch record (status = 'processing').
+        Returns the generated batch_id.
+        """
+        batch_id = str(uuid.uuid4())
+
+        db.client.table("import_batches").insert({
+            "id": batch_id,
+            "tenant_id": tenant_id,
+            "file_name": file_name,
+            "total_rows": total_rows,
+            "imported_count": imported_count,
+            "status": "processing"
+        }).execute()
+
+        return batch_id
+
+    @staticmethod
+    def list_batches(tenant_id: str) -> List[Dict]:
+        """
+        List all import batches for a tenant, newest first.
+        """
+        result = db.client.table("import_batches")\
+            .select("id, file_name, total_rows, imported_count, failed_count, errors, status, created_at")\
+            .eq("tenant_id", tenant_id)\
+            .order("created_at", desc=True)\
+            .execute()
+
+        return result.data or []
+
+    @staticmethod
+    def delete_batch(tenant_id: str, batch_id: str) -> int:
+        """
+        Delete all contacts belonging to a batch, then delete the batch record.
+        Returns deleted contact count.
+        """
+        # 1. Delete contacts with this batch_id (tenant-scoped)
+        contact_result = db.client.table("contacts")\
+            .delete()\
+            .eq("tenant_id", tenant_id)\
+            .eq("import_batch_id", batch_id)\
+            .execute()
+
+        deleted_count = len(contact_result.data) if contact_result.data else 0
+
+        # 2. Delete the batch record itself
+        db.client.table("import_batches")\
+            .delete()\
+            .eq("tenant_id", tenant_id)\
+            .eq("id", batch_id)\
+            .execute()
+
+        logger.info(f"[BATCH_DELETED] tenant={tenant_id} batch={batch_id} contacts_removed={deleted_count}")
+        return deleted_count

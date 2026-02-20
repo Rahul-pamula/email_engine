@@ -10,14 +10,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Structured logging
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 # Import route modules
-from routes import campaigns, webhooks, auth, onboarding
+from fastapi.staticfiles import StaticFiles
+from routes import campaigns, webhooks, auth, onboarding, contacts, templates, assets
 
 app = FastAPI(
     title="Email Engine API",
     description="Ultimate Email Marketing Platform",
     version="1.0.0"
 )
+
+# Mount static files directory for assets
+# The directory "assets" will be served at /static/assets
+os.makedirs("assets", exist_ok=True)
+app.mount("/static/assets", StaticFiles(directory="assets"), name="assets")
 
 # CRITICAL: Add CORS middleware BEFORE including routers
 app.add_middleware(
@@ -33,7 +47,9 @@ app.include_router(webhooks.router)
 app.include_router(campaigns.router)
 app.include_router(auth.router)
 app.include_router(onboarding.router)
-
+app.include_router(contacts.router)
+app.include_router(templates.router)
+app.include_router(assets.router)
 
 
 class ContactCreate(BaseModel):

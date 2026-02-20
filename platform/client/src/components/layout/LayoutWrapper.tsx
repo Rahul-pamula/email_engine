@@ -23,8 +23,11 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     const isPublicRoute = publicRoutes.includes(pathname || '');
     const isOnboardingRoute = pathname?.startsWith('/onboarding');
 
-    // Only show sidebar for authenticated users on app routes (not public or onboarding)
-    const showSidebar = !isPublicRoute && !isOnboardingRoute && isAuthenticated;
+    // Full-screen routes: template editor (/templates/[id]) should hide sidebar for immersive editing
+    const isFullScreenRoute = /^\/templates\/[^/]+$/.test(pathname || '') && pathname !== '/templates';
+
+    // Only show sidebar for authenticated users on app routes (not public, onboarding, or full-screen)
+    const showSidebar = !isPublicRoute && !isOnboardingRoute && !isFullScreenRoute && isAuthenticated;
 
     // Show loading state
     if (isLoading) {

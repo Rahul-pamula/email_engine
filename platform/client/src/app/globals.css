@@ -3,9 +3,107 @@
 @tailwind utilities;
 
 /* ============================================================
-   EMAIL ENGINE - Minimal Reset
+   EMAIL ENGINE — Design System Tokens
+   Define once here. Use CSS vars everywhere. Never hardcode hex.
    ============================================================ */
 
+:root {
+  /* Backgrounds */
+  --bg-primary: #0F172A;
+  /* page background */
+  --bg-card: #1E293B;
+  /* card surface */
+  --bg-hover: #293548;
+  /* hover state */
+  --bg-input: #0F172A;
+  /* input backgrounds */
+
+  /* Brand Accent */
+  --accent: #3B82F6;
+  /* primary blue CTA */
+  --accent-hover: #2563EB;
+  /* blue hover */
+  --accent-purple: #8B5CF6;
+  /* secondary / gradients */
+
+  /* Text */
+  --text-primary: #F1F5F9;
+  /* headings, labels */
+  --text-muted: #94A3B8;
+  /* descriptions, placeholders */
+  --text-inverted: #0F172A;
+  /* text on light backgrounds */
+
+  /* Borders */
+  --border: #334155;
+  /* card borders, dividers */
+  --border-subtle: #1E293B;
+  /* very subtle separation */
+
+  /* Semantic Colors */
+  --success: #10B981;
+  /* green — sent, verified */
+  --success-bg: #064E3B;
+  /* green badge bg */
+  --warning: #F59E0B;
+  /* yellow — 80% quota, paused */
+  --warning-bg: #451A03;
+  /* yellow badge bg */
+  --danger: #EF4444;
+  /* red — failed, blocked */
+  --danger-bg: #450A0A;
+  /* red badge bg */
+  --info: #60A5FA;
+  /* light blue — info states */
+  --info-bg: #1E3A5F;
+  /* info badge bg */
+
+  /* Typography scale */
+  --text-h1: 1.75rem;
+  /* 28px bold headings */
+  --text-h2: 1.25rem;
+  /* 20px semibold */
+  --text-h3: 1rem;
+  /* 16px semibold */
+  --text-body: 0.875rem;
+  /* 14px body */
+  --text-caption: 0.75rem;
+  /* 12px captions */
+  --text-mono: 0.8125rem;
+  /* 13px monospace (IDs, codes) */
+
+  /* Spacing & Shape */
+  --radius: 0.5rem;
+  /* 8px radius */
+  --radius-lg: 0.75rem;
+  /* 12px large radius */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+  /* shadcn-ui compatible variables */
+  --background: 0 0% 6%;
+  --foreground: 210 40% 96%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 96%;
+  --popover: 222 47% 11%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent-hsl: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border-hsl: 215 28% 17%;
+  --input-hsl: 215 28% 17%;
+  --ring: 217 91% 60%;
+}
+
+/* ============================================================
+   BASE RESET
+   ============================================================ */
 * {
   margin: 0;
   padding: 0;
@@ -15,12 +113,34 @@
 html,
 body {
   height: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: var(--text-body);
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Minimal Scrollbar */
+/* ============================================================
+   ACCESSIBILITY — WCAG 2.1 AA
+   IMPORTANT: Do NOT use *:focus { outline: none }
+   The rule below properly shows focus only for keyboard users.
+   ============================================================ */
+*:focus {
+  outline: none;
+  /* Remove default browser outline */
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -31,7 +151,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--border);
   border-radius: 3px;
 }
 
@@ -39,12 +159,46 @@ body {
   background: #475569;
 }
 
-/* Remove any default focus outlines - we handle focus states inline */
-*:focus {
-  outline: none;
+/* ============================================================
+   TYPOGRAPHY HELPERS
+   ============================================================ */
+.text-h1 {
+  font-size: var(--text-h1);
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-/* Pulse animation for sending status */
+.text-h2 {
+  font-size: var(--text-h2);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-h3 {
+  font-size: var(--text-h3);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-body {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.text-caption {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.text-mono {
+  font-size: var(--text-mono);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
 @keyframes pulse {
 
   0%,
@@ -55,4 +209,50 @@ body {
   50% {
     opacity: 0.5;
   }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
 }

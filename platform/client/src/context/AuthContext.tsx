@@ -16,6 +16,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    token: string | null;
     login: (email: string, password: string) => Promise<void>;
     logout: () => void;
     refreshUserStatus: () => Promise<void>;
@@ -183,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 isAuthenticated,
                 isLoading,
+                token: typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null,
                 login,
                 logout,
                 refreshUserStatus,

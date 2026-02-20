@@ -1,367 +1,1085 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Plus } from "lucide-react";
 import {
     Search,
-    Plus,
     Upload,
-    Download,
-    MoreHorizontal,
     Trash2,
-    Filter,
     ChevronLeft,
     ChevronRight,
-    Check
+    X,
+    AlertTriangle,
+    Check,
+    FileText
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
-/* ============================================================
-   CONTACTS - Light Mode
-   ============================================================ */
+// ===== API Helper =====
+const API_BASE = "http://localhost:8000";
 
-// Light Mode Colors
-const colors = {
-    bgPrimary: '#ffffff',
-    bgSecondary: '#f8fafc',
-    bgElevated: '#f1f5f9',
-    borderSubtle: '#e2e8f0',
-    textPrimary: '#0f172a',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
-    accentBlue: '#2563eb',
-    accentBlueHover: '#1d4ed8',
-    statusSuccess: '#16a34a',
-    statusError: '#dc2626',
-};
+function apiHeaders(token: string) {
+    return { Authorization: `Bearer ${token}` };
+}
 
-// Mock Data
-const contactsData = [
-    { id: 1, email: "john@example.com", name: "John Doe", status: "Active", added: "Mar 1, 2026" },
-    { id: 2, email: "jane@company.com", name: "Jane Smith", status: "Active", added: "Mar 2, 2026" },
-    { id: 3, email: "bob@test.org", name: "Bob Wilson", status: "Unsubscribed", added: "Feb 28, 2026" },
-    { id: 4, email: "alice@demo.net", name: "Alice Brown", status: "Bounced", added: "Feb 25, 2026" },
-    { id: 5, email: "charlie@startup.io", name: "Charlie Davis", status: "Active", added: "Mar 3, 2026" },
-    { id: 6, email: "diana@agency.com", name: "Diana Miller", status: "Active", added: "Mar 3, 2026" },
-    { id: 7, email: "evan@freelance.co", name: "Evan Wright", status: "Active", added: "Feb 20, 2026" },
-    { id: 8, email: "fiona@consulting.grp", name: "Fiona Clark", status: "Active", added: "Feb 15, 2026" },
-];
+// ===== Types =====
+interface Contact {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    custom_fields: Record<string, string> | null;
+    created_at: string;
+}
+
+interface Stats {
+    total_contacts: number;
+    limit: number;
+    usage_percent: number;
+    available: number;
+}
+
+interface Batch {
+    id: string;
+    file_name: string;
+    total_rows: number;
+    imported_count: number;
+    failed_count: number;
+    errors: any[];
+    created_at: string;
+}
+
+// ===== ErrorRow Component =====
+function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
+    err: any; idx: number; batchId: string; token: string;
+    colors: any; onResolved: () => void;
+}) {
+    const [email, setEmail] = useState(err.email || "");
+    const [firstName, setFirstName] = useState(err.first_name || "");
+    const [lastName, setLastName] = useState(err.last_name || "");
+    const [saving, setSaving] = useState(false);
+    const [resolved, setResolved] = useState(false);
+
+    const inputStyle = {
+        padding: "4px 8px", fontSize: "12px", border: `1px solid ${colors.border}`,
+        borderRadius: "4px", width: "100%", boxSizing: "border-box" as const
+    };
+
+    const handleResolve = async () => {
+        if (!email.trim()) return;
+        setSaving(true);
+        try {
+            const res = await fetch(`${API_BASE}/contacts/resolve-error`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ batch_id: batchId, error_index: idx, email, first_name: firstName, last_name: lastName })
+            });
+            if (res.ok) {
+                setResolved(true);
+                setTimeout(onResolved, 500);
+            } else {
+                const data = await res.json();
+                alert(data.detail || "Failed to add contact");
+            }
+        } catch { alert("Error resolving contact"); }
+        setSaving(false);
+    };
+
+    if (resolved) {
+        return (
+            <tr style={{ backgroundColor: "#f0fdf4" }}>
+                <td colSpan={6} style={{ padding: "8px 12px", color: colors.success, fontSize: "12px", fontWeight: 500 }}>
+                    ✓ {email} added successfully
+                </td>
+            </tr>
+        );
+    }
+
+    return (
+        <tr style={{ borderTop: `1px solid ${colors.dangerBorder}` }}>
+            <td style={{ padding: "6px 12px", color: colors.textSecondary, fontSize: "12px" }}>{err.row || "—"}</td>
+            <td style={{ padding: "6px 8px" }}>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" style={inputStyle} />
+            </td>
+            <td style={{ padding: "6px 8px" }}>
+                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First" style={inputStyle} />
+            </td>
+            <td style={{ padding: "6px 8px" }}>
+                <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last" style={inputStyle} />
+            </td>
+            <td style={{ padding: "6px 12px", color: colors.danger, fontSize: "11px" }}>{err.reason}</td>
+            <td style={{ padding: "6px 8px" }}>
+                <button
+                    onClick={handleResolve}
+                    disabled={saving || !email.trim()}
+                    style={{
+                        padding: "4px 10px", fontSize: "11px", fontWeight: 500,
+                        color: "#fff", backgroundColor: saving ? "#9ca3af" : colors.success,
+                        border: "none", borderRadius: "4px", cursor: saving ? "wait" : "pointer",
+                        display: "flex", alignItems: "center", gap: "3px"
+                    }}
+                >
+                    <Plus style={{ width: "12px", height: "12px" }} /> Add
+                </button>
+            </td>
+        </tr>
+    );
+}
 
 export default function ContactsPage() {
-    const [selected, setSelected] = useState<number[]>([]);
-    const [showImport, setShowImport] = useState(false);
+    const { token } = useAuth();
+    const [activeTab, setActiveTab] = useState<"contacts" | "history">("contacts");
 
-    const toggleSelect = (id: number) => {
-        if (selected.includes(id)) {
-            setSelected(selected.filter(i => i !== id));
+    // Stats
+    const [stats, setStats] = useState<Stats | null>(null);
+
+    // Contacts
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    // Dynamic columns
+    const customFieldKeys = React.useMemo(() => {
+        const keys = new Set<string>();
+        contacts.forEach(c => {
+            if (c.custom_fields) {
+                Object.keys(c.custom_fields).forEach(k => keys.add(k));
+            }
+        });
+        return Array.from(keys).sort();
+    }, [contacts]);
+
+    // Selection
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    // Batches
+    const [batches, setBatches] = useState<Batch[]>([]);
+    const [batchesLoading, setBatchesLoading] = useState(false);
+    const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
+
+    // Modals
+    const [showUpload, setShowUpload] = useState(false);
+    const [showDeleteAll, setShowDeleteAll] = useState(false);
+    const [showBulkDelete, setShowBulkDelete] = useState(false);
+    const [showBatchDelete, setShowBatchDelete] = useState<Batch | null>(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+    // Upload state
+    const [uploadStep, setUploadStep] = useState(1);
+    const [file, setFile] = useState<File | null>(null);
+    const [headers, setHeaders] = useState<string[]>([]);
+    const [rowCount, setRowCount] = useState(0);
+    const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
+    const [importResult, setImportResult] = useState<any>(null);
+    const [uploading, setUploading] = useState(false);
+
+    // Helper to get mapped column or empty
+    const getMappedCol = (target: string) => {
+        return Object.entries(columnMappings).find(([_, v]) => v === target)?.[0] || "";
+    };
+    const emailCol = getMappedCol("email");
+    const firstNameCol = getMappedCol("first_name");
+    const lastNameCol = getMappedCol("last_name");
+
+    // ===== Data Fetching =====
+    const fetchStats = async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_BASE}/contacts/stats`, { headers: apiHeaders(token) });
+            if (res.ok) setStats(await res.json());
+        } catch (e) { console.error("Stats error:", e); }
+    };
+
+    const fetchContacts = async () => {
+        if (!token) return;
+        setLoading(true);
+        try {
+            const params = new URLSearchParams({ page: String(page), limit: "20" });
+            if (search) params.set("search", search);
+            const res = await fetch(`${API_BASE}/contacts/?${params}`, { headers: apiHeaders(token) });
+            if (res.ok) {
+                const data = await res.json();
+                setContacts(data.data || []);
+                setTotalPages(data.meta?.total_pages || 0);
+                setTotal(data.meta?.total || 0);
+            }
+        } catch (e) { console.error("Contacts error:", e); }
+        setLoading(false);
+    };
+
+    const fetchBatches = async () => {
+        if (!token) return;
+        setBatchesLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/contacts/batches`, { headers: apiHeaders(token) });
+            if (res.ok) {
+                const data = await res.json();
+                setBatches(data.data || []);
+            }
+        } catch (e) { console.error("Batches error:", e); }
+        setBatchesLoading(false);
+    };
+
+    useEffect(() => { fetchStats(); }, [token]);
+    useEffect(() => { fetchContacts(); }, [token, page, search]);
+    useEffect(() => { if (activeTab === "history") fetchBatches(); }, [activeTab, token]);
+
+    // ===== Selection =====
+    const toggleSelect = (id: string) => {
+        const next = new Set(selected);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        setSelected(next);
+    };
+
+    const toggleSelectAll = () => {
+        if (selected.size === contacts.length) {
+            setSelected(new Set());
         } else {
-            setSelected([...selected, id]);
+            setSelected(new Set(contacts.map(c => c.id)));
         }
     };
 
-    const toggleAll = () => {
-        if (selected.length === contactsData.length) {
-            setSelected([]);
-        } else {
-            setSelected(contactsData.map(c => c.id));
-        }
+    // ===== Upload Flow =====
+    const handleFileSelect = async (f: File) => {
+        setFile(f);
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", f);
+            const res = await fetch(`${API_BASE}/contacts/upload/preview`, {
+                method: "POST",
+                headers: apiHeaders(token!),
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setHeaders(data.headers);
+                setRowCount(data.row_count);
+                // Auto-detect columns by name matching
+                const autoMap: Record<string, string> = {};
+                data.headers.forEach((col: string) => {
+                    const lower = col.toLowerCase().trim();
+                    if (lower === "email" || lower === "email address" || lower === "e-mail") {
+                        autoMap[col] = "email";
+                    } else if (lower.includes("first") && lower.includes("name") || lower === "first_name" || lower === "firstname") {
+                        autoMap[col] = "first_name";
+                    } else if (lower.includes("last") && lower.includes("name") || lower === "last_name" || lower === "lastname") {
+                        autoMap[col] = "last_name";
+                    } else {
+                        // Auto-map unknown columns as custom fields
+                        autoMap[col] = `custom:${lower.replace(/\s+/g, "_")}`;
+                    }
+                });
+                setColumnMappings(autoMap);
+                setUploadStep(2);
+            } else {
+                const err = await res.json();
+                alert(err.detail || "Preview failed");
+            }
+        } catch (e) { alert("Upload failed"); }
+        setUploading(false);
+    };
+
+    const handleImport = async () => {
+        if (!file || !emailCol) return;
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const params = new URLSearchParams({ email_col: emailCol });
+            if (firstNameCol) params.set("first_name_col", firstNameCol);
+            if (lastNameCol) params.set("last_name_col", lastNameCol);
+
+            // Build custom field mappings
+            const customMappings: Record<string, string> = {};
+            Object.entries(columnMappings).forEach(([csvCol, target]) => {
+                if (target.startsWith("custom:")) {
+                    const fieldName = target.replace("custom:", "");
+                    customMappings[fieldName] = csvCol;
+                }
+            });
+            if (Object.keys(customMappings).length > 0) {
+                params.set("custom_mappings", JSON.stringify(customMappings));
+            }
+
+            const res = await fetch(`${API_BASE}/contacts/upload/import?${params}`, {
+                method: "POST",
+                headers: apiHeaders(token!),
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setImportResult(data);
+                setUploadStep(4);
+                fetchStats();
+                fetchContacts();
+            } else {
+                const err = await res.json();
+                alert(err.detail || "Import failed");
+            }
+        } catch (e) { alert("Import failed"); }
+        setUploading(false);
+    };
+
+    const resetUpload = () => {
+        setShowUpload(false);
+        setUploadStep(1);
+        setFile(null);
+        setHeaders([]);
+        setRowCount(0);
+        setColumnMappings({});
+        setImportResult(null);
+    };
+
+    // ===== Delete Operations =====
+    const handleSingleDelete = async (id: string) => {
+        if (!confirm("Delete this contact?")) return;
+        try {
+            await fetch(`${API_BASE}/contacts/${id}`, {
+                method: "DELETE",
+                headers: apiHeaders(token!)
+            });
+            fetchContacts();
+            fetchStats();
+        } catch (e) { alert("Delete failed"); }
+    };
+
+    const handleBulkDelete = async () => {
+        try {
+            await fetch(`${API_BASE}/contacts/bulk-delete`, {
+                method: "POST",
+                headers: { ...apiHeaders(token!), "Content-Type": "application/json" },
+                body: JSON.stringify({ contact_ids: Array.from(selected) })
+            });
+            setSelected(new Set());
+            setShowBulkDelete(false);
+            fetchContacts();
+            fetchStats();
+        } catch (e) { alert("Bulk delete failed"); }
+    };
+
+    const handleDeleteAll = async () => {
+        try {
+            await fetch(`${API_BASE}/contacts/all`, {
+                method: "DELETE",
+                headers: apiHeaders(token!)
+            });
+            setShowDeleteAll(false);
+            setDeleteConfirmText("");
+            fetchContacts();
+            fetchStats();
+            fetchBatches();
+        } catch (e) { alert("Delete all failed"); }
+    };
+
+    const handleDeleteBatch = async (batch: Batch) => {
+        try {
+            await fetch(`${API_BASE}/contacts/batch/${batch.id}`, {
+                method: "DELETE",
+                headers: apiHeaders(token!)
+            });
+            setShowBatchDelete(null);
+            fetchContacts();
+            fetchStats();
+            fetchBatches();
+        } catch (e) { alert("Batch delete failed"); }
+    };
+
+    // ===== Styles =====
+    const colors = {
+        bg: "#ffffff",
+        bgMuted: "#f8fafc",
+        border: "#e2e8f0",
+        text: "#0f172a",
+        textSecondary: "#64748b",
+        accent: "#2563eb",
+        danger: "#dc2626",
+        dangerBg: "#fef2f2",
+        dangerBorder: "#fecaca",
+        success: "#16a34a"
+    };
+
+    const tabStyle = (active: boolean) => ({
+        padding: "10px 20px",
+        fontSize: "14px",
+        fontWeight: 500 as const,
+        color: active ? colors.accent : colors.textSecondary,
+        borderBottom: active ? `2px solid ${colors.accent}` : "2px solid transparent",
+        background: "none",
+        border: "none",
+        borderBottomWidth: "2px",
+        borderBottomStyle: "solid" as const,
+        borderBottomColor: active ? colors.accent : "transparent",
+        cursor: "pointer",
+        transition: "all 150ms"
+    });
+
+    const btnPrimary = {
+        padding: "8px 16px",
+        fontSize: "14px",
+        fontWeight: 500,
+        color: "#fff",
+        backgroundColor: colors.accent,
+        border: "none",
+        borderRadius: "6px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    };
+
+    const btnDanger = {
+        ...btnPrimary,
+        backgroundColor: colors.danger
+    };
+
+    const btnOutline = {
+        ...btnPrimary,
+        backgroundColor: "transparent",
+        color: colors.text,
+        border: `1px solid ${colors.border}`
     };
 
     return (
-        <>
-            {/* Page Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'end',
-                marginBottom: '32px'
-            }}>
-                <div>
-                    <h1 style={{
-                        fontSize: '24px',
-                        fontWeight: 600,
-                        color: colors.textPrimary,
-                        margin: 0,
-                        letterSpacing: '-0.02em',
-                    }}>
-                        Contacts
-                    </h1>
-                    <p style={{
-                        fontSize: '14px',
-                        color: colors.textSecondary,
-                        margin: '4px 0 0 0',
-                    }}>
-                        {contactsData.length} total contacts
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '6px',
-                        color: colors.textSecondary,
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                    }}>
-                        <Download style={{ width: '16px', height: '16px' }} />
-                        Export
-                    </button>
-                    <button
-                        onClick={() => setShowImport(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 16px',
-                            backgroundColor: colors.accentBlue,
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: 'white',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                        }}
-                    >
-                        <Upload style={{ width: '16px', height: '16px' }} />
-                        Import
-                    </button>
-                </div>
+        <div style={{ padding: "24px 32px", maxWidth: "1200px" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>Contacts</h1>
+                <button onClick={() => setShowUpload(true)} style={btnPrimary}>
+                    <Upload style={{ width: "16px", height: "16px" }} /> Upload Contacts
+                </button>
             </div>
 
-            {/* Toolbar */}
-            <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', justifyContent: 'space-between' }}>
-                <div style={{ position: 'relative', width: '300px' }}>
-                    <Search style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: '16px',
-                        height: '16px',
-                        color: colors.textMuted
-                    }} />
-                    <input
-                        type="text"
-                        placeholder="Search contacts by email or name..."
-                        style={{
-                            width: '100%',
-                            padding: '10px 12px 10px 36px',
-                            backgroundColor: colors.bgPrimary,
-                            border: `1px solid ${colors.borderSubtle}`,
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            color: colors.textPrimary,
-                        }}
-                    />
-                </div>
-
-                {selected.length > 0 && (
-                    <button style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        backgroundColor: `${colors.statusError}15`,
-                        border: 'none',
-                        borderRadius: '6px',
-                        color: colors.statusError,
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                    }}>
-                        <Trash2 style={{ width: '16px', height: '16px' }} />
-                        Delete ({selected.length})
-                    </button>
-                )}
-            </div>
-
-            {/* Table */}
-            <div style={{
-                backgroundColor: colors.bgPrimary,
-                border: `1px solid ${colors.borderSubtle}`,
-                borderRadius: '8px',
-                overflow: 'hidden',
-                marginBottom: '24px',
-            }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: colors.bgSecondary, borderBottom: `1px solid ${colors.borderSubtle}` }}>
-                            <th style={{ padding: '12px 20px', width: '40px' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={selected.length === contactsData.length}
-                                    onChange={toggleAll}
-                                    style={{ cursor: 'pointer', accentColor: colors.accentBlue }}
-                                />
-                            </th>
-                            {['Email', 'Name', 'Status', 'Added', ''].map((h) => (
-                                <th key={h} style={{
-                                    padding: '12px 20px',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: colors.textMuted,
-                                    textAlign: 'left',
-                                }}>
-                                    {h}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {contactsData.map((contact) => (
-                            <tr key={contact.id} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
-                                <td style={{ padding: '16px 20px' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={selected.includes(contact.id)}
-                                        onChange={() => toggleSelect(contact.id)}
-                                        style={{ cursor: 'pointer', accentColor: colors.accentBlue }}
-                                    />
-                                </td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: colors.textSecondary }}>{contact.email}</td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: colors.textPrimary, fontWeight: 500 }}>{contact.name}</td>
-                                <td style={{ padding: '16px 20px' }}>
-                                    <span style={{
-                                        display: 'inline-block',
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: 500,
-                                        backgroundColor: contact.status === 'Active' ? `${colors.statusSuccess}15` : `${colors.textMuted}15`,
-                                        color: contact.status === 'Active' ? colors.statusSuccess : colors.textMuted,
-                                    }}>
-                                        {contact.status}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '16px 20px', fontSize: '14px', color: colors.textSecondary, fontFeatureSettings: '"tnum"' }}>{contact.added}</td>
-                                <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                                    <button style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: colors.textMuted,
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                    }}>
-                                        <MoreHorizontal style={{ width: '16px', height: '16px' }} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Pagination */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '14px', color: colors.textSecondary }}>
-                    Showing 1 to 8 of 8 entries
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button disabled style={{
-                        padding: '8px 12px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '6px',
-                        color: colors.textMuted,
-                        cursor: 'not-allowed',
-                        opacity: 0.5,
-                    }}>
-                        <ChevronLeft style={{ width: '16px', height: '16px' }} />
-                    </button>
-                    <button disabled style={{
-                        padding: '8px 12px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '6px',
-                        color: colors.textMuted,
-                        cursor: 'not-allowed',
-                        opacity: 0.5,
-                    }}>
-                        <ChevronRight style={{ width: '16px', height: '16px' }} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Import Modal */}
-            {showImport && (
+            {/* Stats Bar */}
+            {stats && (
                 <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 50,
+                    padding: "16px 20px",
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: "8px",
+                    marginBottom: "20px"
                 }}>
-                    <div style={{
-                        backgroundColor: colors.bgPrimary,
-                        borderRadius: '12px',
-                        width: '100%',
-                        maxWidth: '500px',
-                        padding: '24px',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                    }}>
-                        <h2 style={{ fontSize: '18px', fontWeight: 600, color: colors.textPrimary, marginBottom: '8px' }}>Import Contacts</h2>
-                        <p style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '24px' }}>
-                            Upload a CSV file containing your contacts.
-                        </p>
-
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+                        <div>
+                            <span style={{ fontSize: "24px", fontWeight: 600, color: colors.text }}>
+                                {stats.total_contacts.toLocaleString()}
+                            </span>
+                            <span style={{ fontSize: "14px", color: colors.textSecondary, marginLeft: "6px" }}>
+                                of {stats.limit.toLocaleString()} contacts
+                            </span>
+                        </div>
+                        <span style={{ fontSize: "13px", color: colors.textSecondary }}>
+                            {stats.usage_percent}% used
+                        </span>
+                    </div>
+                    <div style={{ height: "4px", backgroundColor: "#e5e7eb", borderRadius: "2px" }}>
                         <div style={{
-                            border: `2px dashed ${colors.borderSubtle}`,
-                            borderRadius: '8px',
-                            padding: '32px',
-                            textAlign: 'center',
-                            marginBottom: '24px',
-                            cursor: 'pointer',
-                            backgroundColor: colors.bgSecondary,
+                            height: "100%",
+                            width: `${Math.min(stats.usage_percent, 100)}%`,
+                            backgroundColor: stats.usage_percent > 90 ? colors.danger : colors.accent,
+                            borderRadius: "2px",
+                            transition: "width 300ms ease"
+                        }} />
+                    </div>
+                </div>
+            )}
+
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: "0", borderBottom: `1px solid ${colors.border}`, marginBottom: "20px" }}>
+                <button onClick={() => setActiveTab("contacts")} style={tabStyle(activeTab === "contacts")}>
+                    Contacts
+                </button>
+                <button onClick={() => setActiveTab("history")} style={tabStyle(activeTab === "history")}>
+                    Import History
+                </button>
+            </div>
+
+            {/* ===== TAB: Contacts ===== */}
+            {activeTab === "contacts" && (
+                <>
+                    {/* Search */}
+                    <div style={{ position: "relative", maxWidth: "400px", marginBottom: "16px" }}>
+                        <Search style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", width: "16px", height: "16px", color: colors.textSecondary }} />
+                        <input
+                            placeholder="Search by email or name..."
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            style={{
+                                width: "100%",
+                                padding: "8px 12px 8px 36px",
+                                fontSize: "14px",
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: "6px",
+                                outline: "none",
+                                boxSizing: "border-box"
+                            }}
+                        />
+                    </div>
+
+                    {/* Floating Action Bar */}
+                    {selected.size > 0 && (
+                        <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            padding: "10px 16px",
+                            backgroundColor: "#eef2ff",
+                            border: `1px solid #c7d2fe`,
+                            borderRadius: "8px",
+                            marginBottom: "16px"
                         }}>
-                            <Upload style={{ width: '24px', height: '24px', color: colors.textMuted, margin: '0 auto 12px auto' }} />
-                            <p style={{ fontSize: '14px', color: colors.textPrimary, fontWeight: 500 }}>Click to upload or drag and drop</p>
-                            <p style={{ fontSize: '12px', color: colors.textMuted }}>CSV up to 10MB</p>
+                            <span style={{ fontSize: "14px", fontWeight: 500, color: colors.text }}>
+                                {selected.size} contact{selected.size > 1 ? "s" : ""} selected
+                            </span>
+                            <button onClick={() => setShowBulkDelete(true)} style={{ ...btnDanger, fontSize: "13px", padding: "6px 12px" }}>
+                                <Trash2 style={{ width: "14px", height: "14px" }} /> Delete Selected
+                            </button>
+                            <button onClick={() => setSelected(new Set())} style={{ ...btnOutline, fontSize: "13px", padding: "6px 12px" }}>
+                                Clear
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Contacts Table */}
+                    <div style={{ border: `1px solid ${colors.border}`, borderRadius: "8px", overflow: "hidden", overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "800px" }}>
+                            <thead>
+                                <tr style={{ backgroundColor: colors.bgMuted, borderBottom: `1px solid ${colors.border}` }}>
+                                    <th style={{ padding: "10px 12px", width: "40px", textAlign: "left" }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={contacts.length > 0 && selected.size === contacts.length}
+                                            onChange={toggleSelectAll}
+                                            style={{ cursor: "pointer" }}
+                                        />
+                                    </th>
+                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Email</th>
+                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>First Name</th>
+                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Last Name</th>
+                                    {customFieldKeys.map(key => (
+                                        <th key={key} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary, textTransform: "capitalize" }}>
+                                            {key.replace(/_/g, " ")}
+                                        </th>
+                                    ))}
+                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Created</th>
+                                    <th style={{ padding: "10px 12px", width: "60px" }}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={6 + customFieldKeys.length} style={{ padding: "32px", textAlign: "center", color: colors.textSecondary }}>Loading...</td></tr>
+                                ) : contacts.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6 + customFieldKeys.length} style={{ padding: "48px", textAlign: "center" }}>
+                                            <p style={{ color: colors.textSecondary, marginBottom: "12px" }}>No contacts yet. Upload a CSV or Excel file to get started.</p>
+                                            <button onClick={() => setShowUpload(true)} style={btnPrimary}>Upload Contacts</button>
+                                        </td>
+                                    </tr>
+                                ) : contacts.map((c) => (
+                                    <tr key={c.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                        <td style={{ padding: "10px 12px" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selected.has(c.id)}
+                                                onChange={() => toggleSelect(c.id)}
+                                                style={{ cursor: "pointer" }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: "10px 12px", color: colors.text, fontWeight: 500 }}>{c.email}</td>
+                                        <td style={{ padding: "10px 12px", color: colors.textSecondary }}>{c.first_name || "—"}</td>
+                                        <td style={{ padding: "10px 12px", color: colors.textSecondary }}>{c.last_name || "—"}</td>
+                                        {customFieldKeys.map(key => (
+                                            <td key={key} style={{ padding: "10px 12px", color: colors.textSecondary }}>
+                                                {c.custom_fields?.[key] || "—"}
+                                            </td>
+                                        ))}
+                                        <td style={{ padding: "10px 12px", color: colors.textSecondary, fontSize: "13px" }}>
+                                            {new Date(c.created_at).toLocaleDateString()}
+                                        </td>
+                                        <td style={{ padding: "10px 12px" }}>
+                                            <button
+                                                onClick={() => handleSingleDelete(c.id)}
+                                                style={{ background: "none", border: "none", cursor: "pointer", color: colors.textSecondary, padding: "4px" }}
+                                                title="Delete"
+                                            >
+                                                <Trash2 style={{ width: "14px", height: "14px" }} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" }}>
+                            <span style={{ fontSize: "13px", color: colors.textSecondary }}>
+                                Showing {(page - 1) * 20 + 1}–{Math.min(page * 20, total)} of {total}
+                            </span>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{ ...btnOutline, opacity: page <= 1 ? 0.4 : 1 }}>
+                                    <ChevronLeft style={{ width: "16px", height: "16px" }} /> Prev
+                                </button>
+                                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ ...btnOutline, opacity: page >= totalPages ? 0.4 : 1 }}>
+                                    Next <ChevronRight style={{ width: "16px", height: "16px" }} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Danger Zone */}
+                    {stats && stats.total_contacts > 0 && (
+                        <div style={{
+                            marginTop: "32px",
+                            padding: "16px 20px",
+                            border: `1px solid ${colors.dangerBorder}`,
+                            borderRadius: "8px",
+                            backgroundColor: colors.dangerBg
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                    <h3 style={{ fontSize: "14px", fontWeight: 600, color: colors.danger, margin: "0 0 4px 0" }}>Danger Zone</h3>
+                                    <p style={{ fontSize: "13px", color: colors.textSecondary, margin: 0 }}>
+                                        Permanently delete all {stats.total_contacts.toLocaleString()} contacts. This action cannot be undone.
+                                    </p>
+                                </div>
+                                <button onClick={() => setShowDeleteAll(true)} style={btnDanger}>
+                                    <AlertTriangle style={{ width: "14px", height: "14px" }} /> Delete All Contacts
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* ===== TAB: Import History ===== */}
+            {activeTab === "history" && (
+                <div style={{ border: `1px solid ${colors.border}`, borderRadius: "8px", overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                        <thead>
+                            <tr style={{ backgroundColor: colors.bgMuted, borderBottom: `1px solid ${colors.border}` }}>
+                                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>File Name</th>
+                                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Imported</th>
+                                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Failed</th>
+                                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Total Rows</th>
+                                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Import Date</th>
+                                <th style={{ padding: "10px 16px", width: "120px" }}></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {batchesLoading ? (
+                                <tr><td colSpan={6} style={{ padding: "32px", textAlign: "center", color: colors.textSecondary }}>Loading...</td></tr>
+                            ) : batches.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} style={{ padding: "48px", textAlign: "center", color: colors.textSecondary }}>
+                                        <FileText style={{ width: "24px", height: "24px", marginBottom: "8px", opacity: 0.4 }} />
+                                        <p>No imports yet</p>
+                                    </td>
+                                </tr>
+                            ) : batches.map((b) => (
+                                <React.Fragment key={b.id}>
+                                    <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                        <td style={{ padding: "10px 16px", color: colors.text, fontWeight: 500 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <FileText style={{ width: "14px", height: "14px", color: colors.textSecondary }} />
+                                                {b.file_name}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: "10px 16px", color: colors.success, fontWeight: 500 }}>{b.imported_count}</td>
+                                        <td style={{ padding: "10px 16px" }}>
+                                            {(b.failed_count || 0) > 0 ? (
+                                                <button
+                                                    onClick={() => setExpandedBatch(expandedBatch === b.id ? null : b.id)}
+                                                    style={{
+                                                        background: colors.dangerBg,
+                                                        border: `1px solid ${colors.dangerBorder}`,
+                                                        borderRadius: "12px",
+                                                        padding: "2px 10px",
+                                                        fontSize: "13px",
+                                                        color: colors.danger,
+                                                        fontWeight: 600,
+                                                        cursor: "pointer",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "4px"
+                                                    }}
+                                                >
+                                                    {b.failed_count} failed
+                                                    <span style={{ fontSize: "10px" }}>{expandedBatch === b.id ? "▲" : "▼"}</span>
+                                                </button>
+                                            ) : (
+                                                <span style={{ color: colors.textSecondary }}>0</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: "10px 16px", color: colors.textSecondary }}>{b.total_rows}</td>
+                                        <td style={{ padding: "10px 16px", color: colors.textSecondary, fontSize: "13px" }}>
+                                            {new Date(b.created_at).toLocaleDateString()} {new Date(b.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                        </td>
+                                        <td style={{ padding: "10px 16px" }}>
+                                            <button onClick={() => setShowBatchDelete(b)} style={{ ...btnOutline, fontSize: "13px", padding: "6px 12px", color: colors.danger, borderColor: colors.dangerBorder }}>
+                                                <Trash2 style={{ width: "13px", height: "13px" }} /> Delete Batch
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {/* Expanded error details */}
+                                    {expandedBatch === b.id && b.errors && (Array.isArray(b.errors) ? b.errors : JSON.parse(b.errors as any)).length > 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: "0 16px 16px", backgroundColor: "#fefcfb" }}>
+                                                <div style={{
+                                                    border: `1px solid ${colors.dangerBorder}`,
+                                                    borderRadius: "8px",
+                                                    overflow: "hidden",
+                                                    marginTop: "8px"
+                                                }}>
+                                                    <div style={{
+                                                        padding: "10px 14px",
+                                                        backgroundColor: colors.dangerBg,
+                                                        borderBottom: `1px solid ${colors.dangerBorder}`,
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center"
+                                                    }}>
+                                                        <span style={{ fontSize: "13px", fontWeight: 600, color: colors.danger }}>
+                                                            Failed Contacts — Edit and add to resolve
+                                                        </span>
+                                                    </div>
+                                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                                                        <thead>
+                                                            <tr style={{ backgroundColor: "#fef8f6" }}>
+                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary, width: "50px" }}>Row</th>
+                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Email</th>
+                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>First Name</th>
+                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Last Name</th>
+                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Reason</th>
+                                                                <th style={{ padding: "8px 12px", width: "80px" }}></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(Array.isArray(b.errors) ? b.errors : JSON.parse(b.errors as any)).map((err: any, idx: number) => (
+                                                                <ErrorRow
+                                                                    key={idx}
+                                                                    err={err}
+                                                                    idx={idx}
+                                                                    batchId={b.id}
+                                                                    token={token!}
+                                                                    colors={colors}
+                                                                    onResolved={() => {
+                                                                        fetchBatches();
+                                                                        fetchContacts();
+                                                                        fetchStats();
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* ===== MODAL: Upload Flow ===== */}
+            {showUpload && (
+                <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "480px", maxHeight: "80vh", overflowY: "auto" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                            <h2 style={{ fontSize: "18px", fontWeight: 600, margin: 0, color: colors.text }}>
+                                Import Contacts (Step {uploadStep}/4)
+                            </h2>
+                            <button onClick={resetUpload} style={{ background: "none", border: "none", cursor: "pointer", color: colors.textSecondary }}>
+                                <X style={{ width: "20px", height: "20px" }} />
+                            </button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setShowImport(false)}
-                                style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: 'transparent',
-                                    border: `1px solid ${colors.borderSubtle}`,
-                                    borderRadius: '6px',
-                                    color: colors.textPrimary,
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
+                        {/* Step 1: File Upload */}
+                        {uploadStep === 1 && (
+                            <div>
+                                <label htmlFor="file-upload" style={{
+                                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                                    padding: "40px", border: `2px dashed ${colors.border}`, borderRadius: "8px", cursor: "pointer",
+                                    backgroundColor: colors.bgMuted, transition: "border-color 150ms"
                                 }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => setShowImport(false)}
-                                style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: colors.accentBlue,
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    color: 'white',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Import Contacts
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); }}
+                                >
+                                    <Upload style={{ width: "24px", height: "24px", color: colors.textSecondary, marginBottom: "8px" }} />
+                                    <p style={{ fontSize: "14px", fontWeight: 500, marginBottom: "4px", color: colors.text }}>
+                                        {uploading ? "Parsing..." : "Click to upload or drag and drop"}
+                                    </p>
+                                    <p style={{ fontSize: "12px", color: colors.textSecondary }}>CSV or Excel files (up to 2MB)</p>
+                                    <input id="file-upload" type="file" accept=".csv,.xlsx" onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])} style={{ display: "none" }} />
+                                </label>
+                            </div>
+                        )}
+
+                        {/* Step 2: Dynamic Column Mapping */}
+                        {uploadStep === 2 && (
+                            <div>
+                                <p style={{ fontSize: "14px", color: colors.textSecondary, marginBottom: "12px" }}>
+                                    Map each file column to a contact field. Email is required.
+                                </p>
+                                <div style={{ maxHeight: "360px", overflowY: "auto", paddingRight: "4px" }}>
+                                    {headers.map((col) => {
+                                        const mapping = columnMappings[col] || "skip";
+                                        const isCustom = mapping.startsWith("custom:");
+                                        const customName = isCustom ? mapping.replace("custom:", "") : "";
+
+                                        return (
+                                            <div key={col} style={{ marginBottom: "10px", padding: "8px 10px", borderRadius: "6px", backgroundColor: mapping !== "skip" ? "#f8fafc" : "transparent", border: `1px solid ${mapping !== "skip" ? colors.border : "transparent"}` }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                    <span style={{
+                                                        fontSize: "13px", fontWeight: 500, color: colors.text,
+                                                        minWidth: "110px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                                                    }} title={col}>{col}</span>
+                                                    <span style={{ fontSize: "13px", color: colors.textSecondary }}>→</span>
+                                                    <select
+                                                        value={isCustom ? "custom" : mapping}
+                                                        onChange={(e) => {
+                                                            const newMappings = { ...columnMappings };
+                                                            const val = e.target.value;
+                                                            if (val === "skip") {
+                                                                delete newMappings[col];
+                                                            } else if (val === "custom") {
+                                                                // Set custom with default name from column header
+                                                                newMappings[col] = `custom:${col.toLowerCase().replace(/\s+/g, "_")}`;
+                                                            } else {
+                                                                // Standard field — ensure uniqueness
+                                                                Object.keys(newMappings).forEach(k => {
+                                                                    if (newMappings[k] === val && k !== col) {
+                                                                        delete newMappings[k];
+                                                                    }
+                                                                });
+                                                                newMappings[col] = val;
+                                                            }
+                                                            setColumnMappings(newMappings);
+                                                        }}
+                                                        style={{
+                                                            flex: 1, padding: "6px 8px", fontSize: "13px",
+                                                            border: `1px solid ${colors.border}`, borderRadius: "6px", backgroundColor: "#fff"
+                                                        }}
+                                                    >
+                                                        <option value="skip">⊘ Skip</option>
+                                                        <option value="email" disabled={!!getMappedCol("email") && getMappedCol("email") !== col}>📧 Email (required)</option>
+                                                        <option value="first_name" disabled={!!getMappedCol("first_name") && getMappedCol("first_name") !== col}>👤 First Name</option>
+                                                        <option value="last_name" disabled={!!getMappedCol("last_name") && getMappedCol("last_name") !== col}>👤 Last Name</option>
+                                                        <option value="custom">📋 Custom Field</option>
+                                                    </select>
+                                                </div>
+                                                {isCustom && (
+                                                    <div style={{ marginTop: "6px", paddingLeft: "118px" }}>
+                                                        <input
+                                                            type="text"
+                                                            value={customName}
+                                                            placeholder="Enter field name (e.g. phone, company)"
+                                                            onChange={(e) => {
+                                                                const newMappings = { ...columnMappings };
+                                                                const fieldName = e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+                                                                newMappings[col] = `custom:${fieldName}`;
+                                                                setColumnMappings(newMappings);
+                                                            }}
+                                                            style={{
+                                                                width: "100%", padding: "5px 8px", fontSize: "12px",
+                                                                border: `1px solid ${colors.border}`, borderRadius: "4px",
+                                                                backgroundColor: "#fff"
+                                                            }}
+                                                        />
+                                                        <p style={{ margin: "2px 0 0", fontSize: "11px", color: colors.textSecondary }}>
+                                                            Stored as: <code style={{ fontSize: "11px", backgroundColor: "#f1f5f9", padding: "1px 4px", borderRadius: "2px" }}>{customName || "..."}</code>
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {!emailCol && (
+                                    <p style={{ fontSize: "12px", color: colors.danger, marginTop: "8px" }}>⚠ You must map one column as Email</p>
+                                )}
+                                <button disabled={!emailCol} onClick={() => setUploadStep(3)}
+                                    style={{ ...btnPrimary, width: "100%", justifyContent: "center", marginTop: "12px", opacity: emailCol ? 1 : 0.5 }}>
+                                    Continue
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Step 3: Validation */}
+                        {uploadStep === 3 && (
+                            <div>
+                                <div style={{ padding: "16px", backgroundColor: colors.bgMuted, borderRadius: "8px", marginBottom: "16px" }}>
+                                    <p style={{ margin: "0 0 10px", fontSize: "14px", fontWeight: 500, color: colors.text }}>Ready to import</p>
+                                    <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.textSecondary }}>📁 File: {file?.name}</p>
+                                    <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.textSecondary }}>📊 Total rows: {rowCount}</p>
+                                    <div style={{ marginTop: "10px", borderTop: `1px solid ${colors.border}`, paddingTop: "10px" }}>
+                                        <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 600, color: colors.text }}>Field Mappings:</p>
+                                        {Object.entries(columnMappings).map(([csvCol, target]) => (
+                                            <p key={csvCol} style={{ margin: "0 0 3px", fontSize: "12px", color: colors.textSecondary }}>
+                                                {csvCol} → <span style={{ fontWeight: 500, color: colors.text }}>
+                                                    {target === "email" ? "📧 Email" : target === "first_name" ? "👤 First Name" : target === "last_name" ? "👤 Last Name" : `📋 ${target.replace("custom:", "")}`}
+                                                </span>
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                    <button onClick={() => setUploadStep(2)} style={{ ...btnOutline, flex: 1, justifyContent: "center" }}>Back</button>
+                                    <button onClick={handleImport} disabled={uploading}
+                                        style={{ ...btnPrimary, flex: 1, justifyContent: "center", opacity: uploading ? 0.6 : 1 }}>
+                                        {uploading ? "Importing..." : "Import Contacts"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 4: Success */}
+                        {uploadStep === 4 && importResult && (
+                            <div style={{ textAlign: "center" }}>
+                                <div style={{
+                                    width: "48px", height: "48px", borderRadius: "50%", backgroundColor: "#dcfce7",
+                                    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px"
+                                }}>
+                                    <Check style={{ width: "24px", height: "24px", color: colors.success }} />
+                                </div>
+                                <h3 style={{ fontSize: "16px", fontWeight: 600, margin: "0 0 16px", color: colors.text }}>Import Complete</h3>
+                                <div style={{ padding: "12px 16px", backgroundColor: colors.bgMuted, borderRadius: "8px", textAlign: "left", marginBottom: "16px" }}>
+                                    <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.textSecondary }}>Total processed: {importResult.total}</p>
+                                    <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.success, fontWeight: 500 }}>✓ Imported: {importResult.success}</p>
+                                    {importResult.new !== undefined && <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.textSecondary }}>New: {importResult.new} | Updated: {importResult.updated}</p>}
+                                    {importResult.failed > 0 && <p style={{ margin: 0, fontSize: "13px", color: colors.danger }}>✗ Failed: {importResult.failed}</p>}
+                                </div>
+
+                                {/* Failed contacts detail */}
+                                {importResult.errors && importResult.errors.length > 0 && (
+                                    <div style={{ textAlign: "left", marginBottom: "16px" }}>
+                                        <p style={{ fontSize: "13px", fontWeight: 600, color: colors.danger, margin: "0 0 8px" }}>
+                                            Failed Contacts — Fix these and re-upload:
+                                        </p>
+                                        <div style={{
+                                            border: `1px solid ${colors.dangerBorder}`,
+                                            borderRadius: "8px",
+                                            overflow: "hidden",
+                                            maxHeight: "200px",
+                                            overflowY: "auto"
+                                        }}>
+                                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: colors.dangerBg }}>
+                                                        <th style={{ padding: "6px 10px", textAlign: "left", fontWeight: 500, color: colors.danger }}>Row</th>
+                                                        <th style={{ padding: "6px 10px", textAlign: "left", fontWeight: 500, color: colors.danger }}>Email</th>
+                                                        <th style={{ padding: "6px 10px", textAlign: "left", fontWeight: 500, color: colors.danger }}>Reason</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {importResult.errors.map((err: any, i: number) => (
+                                                        <tr key={i} style={{ borderTop: `1px solid ${colors.dangerBorder}` }}>
+                                                            <td style={{ padding: "6px 10px", color: colors.textSecondary }}>{err.row || "—"}</td>
+                                                            <td style={{ padding: "6px 10px", color: colors.text, fontFamily: "monospace", fontSize: "11px" }}>{err.email || "—"}</td>
+                                                            <td style={{ padding: "6px 10px", color: colors.danger }}>{err.reason}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {importResult.failed > importResult.errors.length && (
+                                            <p style={{ fontSize: "11px", color: colors.textSecondary, marginTop: "4px" }}>
+                                                Showing first {importResult.errors.length} of {importResult.failed} errors
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                <button onClick={resetUpload} style={{ ...btnPrimary, width: "100%", justifyContent: "center" }}>Done</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ===== MODAL: Bulk Delete Confirm ===== */}
+            {showBulkDelete && (
+                <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "400px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                            <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
+                            <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.text }}>Delete {selected.size} Contact{selected.size > 1 ? "s" : ""}?</h3>
+                        </div>
+                        <p style={{ fontSize: "14px", color: colors.textSecondary, marginBottom: "20px" }}>
+                            This action cannot be undone. The selected contacts will be permanently removed.
+                        </p>
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                            <button onClick={() => setShowBulkDelete(false)} style={btnOutline}>Cancel</button>
+                            <button onClick={handleBulkDelete} style={btnDanger}>Delete</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== MODAL: Delete All (Type to Confirm) ===== */}
+            {showDeleteAll && (
+                <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "440px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                            <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
+                            <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.danger }}>Delete All Contacts</h3>
+                        </div>
+                        <p style={{ fontSize: "14px", color: colors.textSecondary, marginBottom: "16px" }}>
+                            This will permanently delete <strong>{stats?.total_contacts.toLocaleString()}</strong> contacts and all import history. This action cannot be undone.
+                        </p>
+                        <p style={{ fontSize: "13px", color: colors.text, marginBottom: "8px", fontWeight: 500 }}>
+                            Type <strong>DELETE</strong> to confirm:
+                        </p>
+                        <input
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value)}
+                            placeholder="Type DELETE"
+                            style={{
+                                width: "100%", padding: "8px 12px", fontSize: "14px",
+                                border: `1px solid ${colors.dangerBorder}`, borderRadius: "6px",
+                                marginBottom: "16px", boxSizing: "border-box"
+                            }}
+                        />
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                            <button onClick={() => { setShowDeleteAll(false); setDeleteConfirmText(""); }} style={btnOutline}>Cancel</button>
+                            <button onClick={handleDeleteAll} disabled={deleteConfirmText !== "DELETE"}
+                                style={{ ...btnDanger, opacity: deleteConfirmText === "DELETE" ? 1 : 0.4 }}>
+                                Delete All Contacts
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </>
+
+            {/* ===== MODAL: Delete Batch Confirm ===== */}
+            {showBatchDelete && (
+                <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "420px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                            <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
+                            <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.text }}>Delete Import Batch?</h3>
+                        </div>
+                        <p style={{ fontSize: "14px", color: colors.textSecondary, marginBottom: "4px" }}>
+                            This will delete all contacts imported from:
+                        </p>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: colors.text, marginBottom: "4px" }}>
+                            📄 {showBatchDelete.file_name}
+                        </p>
+                        <p style={{ fontSize: "13px", color: colors.textSecondary, marginBottom: "20px" }}>
+                            {showBatchDelete.imported_count} contact{showBatchDelete.imported_count !== 1 ? "s" : ""} will be deleted.
+                        </p>
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                            <button onClick={() => setShowBatchDelete(null)} style={btnOutline}>Cancel</button>
+                            <button onClick={() => handleDeleteBatch(showBatchDelete)} style={btnDanger}>Delete Batch</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

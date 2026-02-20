@@ -1,132 +1,79 @@
 """
-PHASE 2: CAMPAIGN MANAGEMENT
+PHASE 3: CAMPAIGN ORCHESTRATION
 Ultimate Email Platform
 
 Features:
 - Campaign CRUD (Create, Read, Update, Delete)
-- Spintax variable support
-- Merge tag processing
-- Scheduling with timezone awareness
-- **Tenant Isolation**: JWT-based authentication (PRODUCTION-GRADE)
+- Snapshotting (Freezing content before send)
+- Orchestration (Queueing for background worker)
+- **Tenant Isolation**: JWT-based authentication
 """
 
 from fastapi import APIRouter, HTTPException, Header, Depends
-from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 import uuid
 import re
 import random
 
+# Import Validation Models
+from models.campaign import (
+    CampaignCreate, 
+    CampaignUpdate, 
+    CampaignResponse, 
+    CampaignSnapshotCreate,
+    SendRequest
+)
+
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 
+# === JWT Middleware ===
+from utils.jwt_middleware import require_active_tenant
 
-# === JWT Middleware (PRODUCTION-GRADE) ===
-from utils.jwt_middleware import require_active_tenant, require_authenticated_user
-
-
-# === DEPRECATED: Old header-based dependency ===
-async def get_tenant_id(x_tenant_id: str = Header(...)):
-    """ 
-    DEPRECATED: Use require_active_tenant instead.
-    Kept temporarily for backward compatibility.
-    """
-    if not x_tenant_id:
-        raise HTTPException(status_code=400, detail="X-Tenant-ID header is required")
-    return x_tenant_id
-
-
-# === Pydantic Models (Matching Schema) ===
-
-class CampaignCreate(BaseModel):
-    """Create a new campaign"""
-    name: str = Field(..., min_length=1, max_length=200)
-    subject: str = Field(..., min_length=1, max_length=500)
-    body_html: str = Field(..., description="HTML email content with optional Spintax/variables")
-    status: str = Field(default="draft")  # draft, scheduled, sending, sent, paused, cancelled
-    scheduled_at: Optional[datetime] = None
-
-
-class CampaignUpdate(BaseModel):
-    """Update an existing campaign"""
-    name: Optional[str] = None
-    subject: Optional[str] = None
-    body_html: Optional[str] = None
-    status: Optional[str] = None
-    scheduled_at: Optional[datetime] = None
-
-
-class SendRequest(BaseModel):
-    """Request body for sending a campaign"""
-    test_emails: Optional[List[str]] = None
-    contact_list_id: Optional[str] = None
-
-
-
-# === Variable Processing (Spintax + Merge Tags) ===
-
+# === Utilities ===
 def process_spintax(text: str) -> str:
-    """
-    Process Spintax: {Hello|Hi|Hey} -> randomly picks one
-    """
+    """Process Spintax: {Hello|Hi|Hey} -> randomly picks one"""
+    if not text: return ""
     pattern = r'\{([^{}]+)\}'
-    
     def replace_spintax(match):
         options = match.group(1).split('|')
         return random.choice(options)
-    
     while re.search(pattern, text):
         text = re.sub(pattern, replace_spintax, text)
-    
     return text
 
-
 def process_merge_tags(text: str, contact: dict) -> str:
-    """
-    Process merge tags: {{first_name}} -> actual value
-    """
+    """Process merge tags: {{first_name}} -> actual value"""
+    if not text: return ""
     pattern = r'\{\{(\w+)(?:\|([^}]+))?\}\}'
-    
     def replace_tag(match):
         field = match.group(1)
         fallback = match.group(2) or ""
         return str(contact.get(field, fallback) or fallback)
-    
     return re.sub(pattern, replace_tag, text)
 
 
 # === Campaign Routes ===
 
-@router.post("/")
+@router.post("/", response_model=dict)
 async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(require_active_tenant)):
     """
     Create a new email campaign (Tenant Scoped).
-    
-    SECURITY GUARD: Only ACTIVE tenants can create campaigns.
-    Onboarding tenants must complete onboarding first.
     """
     from utils.supabase_client import db
     
-    # CRITICAL: Check tenant status before allowing campaign creation
+    # 1. Verify Tenant Status
     tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
-    
-    if not tenant_result.data:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    
-    tenant_status = tenant_result.data[0]["status"]
-    
-    if tenant_status != "active":
-        raise HTTPException(
-            status_code=403,
-            detail=f"Tenant is in '{tenant_status}' status. Complete onboarding to create campaigns."
-        )
+    if not tenant_result.data or tenant_result.data[0]["status"] != "active":
+        raise HTTPException(status_code=403, detail="Tenant must be active to create campaigns.")
     
     campaign_id = str(uuid.uuid4())
     
-    # Match schema exactly: id, name, subject, body_html, status, scheduled_at, created_at, tenant_id
+    # 2. Insert Campaign
     data = {
         "id": campaign_id,
         "tenant_id": tenant_id,
+        "project_id": tenant_id, # Simplified: Project = Tenant for now
         "name": campaign.name,
         "subject": campaign.subject,
         "body_html": campaign.body_html,
@@ -135,59 +82,47 @@ async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(req
         "created_at": datetime.now().isoformat()
     }
     
-    result = db.client.table("campaigns").insert(data).execute()
+    db.client.table("campaigns").insert(data).execute()
     
     return {
         "status": "created",
         "id": campaign_id,
-        "tenant_id": tenant_id,
-        "message": f"Campaign '{campaign.name}' created successfully."
+        "message": f"Campaign '{campaign.name}' created."
     }
-
 
 @router.get("/")
 async def list_campaigns(status: Optional[str] = None, limit: int = 50, tenant_id: str = Depends(require_active_tenant)):
     """List all campaigns for the specific Tenant"""
     from utils.supabase_client import db
     
-    # Enforce Tenant Isolation
-    query = db.client.table("campaigns").select("id, name, subject, status, created_at, scheduled_at").eq("tenant_id", tenant_id)
+    query = db.client.table("campaigns").select("id, name, subject, status, created_at, scheduled_at, stats:email_tasks(count)").eq("tenant_id", tenant_id)
     
     if status:
         query = query.eq("status", status)
     
     result = query.order("created_at", desc=True).limit(limit).execute()
-    
     return {"campaigns": result.data}
-
 
 @router.get("/{campaign_id}")
 async def get_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
-    """Get a single campaign by ID (Tenant Scoped)"""
+    """Get a single campaign by ID"""
     from utils.supabase_client import db
     
-    # Enforce Tenant Isolation
     result = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
-    
     if not result.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
     return result.data[0]
 
-
 @router.patch("/{campaign_id}")
 async def update_campaign(campaign_id: str, campaign: CampaignUpdate, tenant_id: str = Depends(require_active_tenant)):
-    """Update an existing campaign (Tenant Scoped)"""
+    """Update an existing campaign"""
     from utils.supabase_client import db
     
-    # Only include non-None fields
     update_data = {k: v for k, v in campaign.model_dump().items() if v is not None}
-    
-    # Convert datetime to ISO string
     if "scheduled_at" in update_data and update_data["scheduled_at"]:
         update_data["scheduled_at"] = update_data["scheduled_at"].isoformat()
     
-    # Enforce Tenant Isolation
     result = db.client.table("campaigns").update(update_data).eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
     
     if not result.data:
@@ -195,127 +130,79 @@ async def update_campaign(campaign_id: str, campaign: CampaignUpdate, tenant_id:
     
     return {"status": "updated", "campaign": result.data[0]}
 
-
 @router.delete("/{campaign_id}")
 async def delete_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
-    """Delete a campaign (Tenant Scoped)"""
+    """Delete a campaign"""
     from utils.supabase_client import db
     
-    # Enforce Tenant Isolation
-    result = db.client.table("campaigns").delete().eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
-    
+    db.client.table("campaigns").delete().eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
     return {"status": "deleted", "id": campaign_id}
-
 
 @router.post("/{campaign_id}/send")
 async def send_campaign(campaign_id: str, request: SendRequest, tenant_id: str = Depends(require_active_tenant)):
     """
-    Send a campaign to contacts.
-    
-    SECURITY GUARD: Only ACTIVE tenants can send campaigns.
-    Tenant Scoped: Only sends if campaign belongs to tenant.
+    ORCHESTRATION TRIGGER:
+    1. Validates campaign status (must be draft).
+    2. Snapshots HTML & Subject.
+    3. Updates status to 'processing'.
+    4. Worker (Commander) will pick this up to generate tasks.
     """
     from utils.supabase_client import db
     
-    # CRITICAL: Check tenant status before allowing email sending
-    tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
-    
-    if not tenant_result.data:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    
-    tenant_status = tenant_result.data[0]["status"]
-    
-    if tenant_status != "active":
-        raise HTTPException(
-            status_code=403,
-            detail=f"Tenant is in '{tenant_status}' status. Complete onboarding to send campaigns."
-        )
-    
-    # Get campaign with Tenant Check
-    campaign = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
-    
-    if not campaign.data:
+    # 1. Fetch Campaign
+    campaign_res = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    if not campaign_res.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    campaign_data = campaign.data[0]
+    campaign = campaign_res.data[0]
     
-    # Get recipients (Tenant Check: Assume contact_list_id is project_id/tenant_id)
-    # Ideally, we should also verify contact_list_id belongs to tenant_id, but here `project_id` IS `tenant_id`
-    target_project_id = request.contact_list_id or tenant_id
+    if campaign["status"] not in ["draft", "paused"]:
+        raise HTTPException(status_code=400, detail=f"Campaign is in '{campaign['status']}' state. Only draft/paused campaigns can be sent.")
     
-    # Verify access to project
-    if target_project_id != tenant_id:
-        # Strict Mode: You can only send to your own lists
-        target_project_id = tenant_id
-
-    if request.test_emails:
-        recipients = [{"email": e} for e in request.test_emails]
-    elif request.contact_list_id:
-        # Use target_project_id
-        contacts = db.client.table("contacts").select("email").eq("project_id", target_project_id).execute()
-        recipients = contacts.data if contacts.data else []
-    else:
-        raise HTTPException(status_code=400, detail="Either test_emails or contact_list_id required")
+    # 2. Snapshot Content (The Freeze)
+    snapshot_id = str(uuid.uuid4())
+    snapshot_data = {
+        "id": snapshot_id,
+        "campaign_id": campaign_id,
+        "body_snapshot": campaign["body_html"],
+        "subject_snapshot": campaign["subject"],
+        "created_at": datetime.now().isoformat()
+    }
     
-    # Create email tasks
-    tasks_created = 0
-    for contact in recipients:
-        email = contact["email"]
-        domain = email.split('@')[-1] if '@' in email else 'unknown'
-        isp = 'gmail' if 'gmail' in domain else 'outlook' if 'outlook' in domain or 'hotmail' in domain else 'yahoo' if 'yahoo' in domain else 'other'
-        
-        # Process content
-        html_content = process_spintax(campaign_data["body_html"])
-        html_content = process_merge_tags(html_content, contact)
-        
-        subject = process_spintax(campaign_data["subject"])
-        subject = process_merge_tags(subject, contact)
-        
-        task = {
-            "trace_id": str(uuid.uuid4()),
-            "tenant_id": tenant_id,  # CRITICAL: Associate task with tenant
-            "campaign_id": campaign_id,
-            "recipient_email": email,
-            "recipient_domain": domain,
-            "recipient_isp": isp,
-            "status": "pending",
-            "payload_rendered": f"<html><body>{html_content}</body></html>"
-        }
-        
-        db.client.table("email_tasks").insert(task).execute()
-        tasks_created += 1
+    db.client.table("campaign_snapshots").insert(snapshot_data).execute()
     
-    # Update campaign status
-    db.client.table("campaigns").update({"status": "sending"}).eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    # 3. Update Campaign Status -> 'processing'
+    # This signals the background worker to start generating tasks
+    update_payload = {
+        "status": "processing",
+        "scheduled_at": datetime.now().isoformat() # Mark as launched now
+    }
+    
+    db.client.table("campaigns").update(update_payload).eq("id", campaign_id).execute()
     
     return {
-        "status": "sending",
-        "tasks_created": tasks_created,
-        "tenant_id": tenant_id,
-        "message": f"Created {tasks_created} email tasks. Worker will process them."
+        "status": "queued",
+        "message": "Campaign queued for processing. Tasks are being generated in the background.",
+        "snapshot_id": snapshot_id
     }
-
 
 @router.post("/{campaign_id}/preview")
 async def preview_campaign(campaign_id: str, sample_contact: Optional[dict] = None, tenant_id: str = Depends(require_active_tenant)):
-    """Preview a campaign (Tenant Scoped)"""
+    """Preview a campaign with sample data"""
     from utils.supabase_client import db
     
     campaign = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
-    
     if not campaign.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
     campaign_data = campaign.data[0]
     
-    # Sample contact for preview
     contact = sample_contact or {
         "email": "preview@example.com",
         "first_name": "John",
         "last_name": "Doe"
     }
     
-    # Process content
     html_content = process_spintax(campaign_data["body_html"])
     html_content = process_merge_tags(html_content, contact)
     
