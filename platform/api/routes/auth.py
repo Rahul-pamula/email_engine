@@ -11,18 +11,17 @@ Features:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
-from passlib.context import CryptContext
+import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 import os
+import httpx
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
@@ -58,12 +57,16 @@ class AuthResponse(BaseModel):
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt"""
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -323,3 +326,234 @@ async def get_current_user():
         "message": "JWT verification not yet implemented",
         "note": "Use the token from signup/login in Authorization header"
     }
+
+
+# === OAuth Routes ===
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+# The redirect URI registered in Google Console pointing to our backend
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback")
+
+FRONTEND_CALLBACK_URL = os.getenv("FRONTEND_CALLBACK_URL", "http://localhost:3000/auth/callback")
+
+
+@router.get("/google/login")
+async def google_login():
+    """Redirect user to Google Consent Screen"""
+    if not GOOGLE_CLIENT_ID:
+        # We redirect back to frontend with error so the UI handles it gracefully
+        return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=GoogleNotConfigured")
+    
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&response_type=code&scope=openid%20email%20profile"
+    return RedirectResponse(url)
+
+
+@router.get("/google/callback")
+async def google_callback(code: str):
+    """Handle Google OAuth Callback"""
+    async with httpx.AsyncClient() as client:
+        # 1. Exchange code for access token
+        token_res = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+            }
+        )
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        
+        if not access_token:
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=GoogleAuthFailed")
+            
+        # 2. Fetch User Profile
+        user_res = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        user_info = user_res.json()
+        email = user_info.get("email")
+        full_name = user_info.get("name", "")
+        
+        if not email:
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=NoEmailFound")
+
+    # 3. Create or Log In User
+    return await process_oauth_user(email, full_name, "google")
+
+
+@router.get("/github/login")
+async def github_login():
+    """Redirect to GitHub Authorization"""
+    if not GITHUB_CLIENT_ID:
+        return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=GitHubNotConfigured")
+        
+    url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={GITHUB_REDIRECT_URI}&scope=user:email"
+    return RedirectResponse(url)
+
+
+@router.get("/github/callback")
+async def github_callback(code: str):
+    """Handle GitHub OAuth Callback"""
+    async with httpx.AsyncClient() as client:
+        # 1. Exchange code for token
+        token_res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            data={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": code,
+                "redirect_uri": GITHUB_REDIRECT_URI,
+            },
+            headers={"Accept": "application/json"}
+        )
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        
+        if not access_token:
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=GitHubAuthFailed")
+            
+        # 2. Get user info
+        user_res = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+        )
+        user_info = user_res.json()
+        full_name = user_info.get("name") or user_info.get("login") or ""
+        
+        # GitHub might return a private email -> fetch explicit emails list
+        email = user_info.get("email")
+        if not email:
+            emails_res = await client.get(
+                "https://api.github.com/user/emails",
+                headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+            )
+            emails = emails_res.json()
+            primary_email = next((e["email"] for e in emails if e["primary"] and e["verified"]), None)
+            if not primary_email and len(emails) > 0:
+                primary_email = emails[0]["email"]
+            email = primary_email
+
+        if not email:
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=NoEmailFound")
+
+    # 3. Create or Log In User
+    return await process_oauth_user(email, full_name, "github")
+
+
+async def process_oauth_user(email: str, full_name: str, provider: str):
+    """Shared logic used by all OAuth providers to provision UI sessions"""
+    from utils.supabase_client import db
+    
+    # 1. Check if user exists
+    user_result = db.client.table("users").select("*").eq("email", email).execute()
+    
+    if user_result.data:
+        # EXISTING USER -> log them in
+        user = user_result.data[0]
+        
+        if not user.get("is_active", True):
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=AccountDisabled")
+            
+        # Get their primary tenant
+        tenant_user_result = db.client.table("tenant_users").select(
+            "tenant_id, role"
+        ).eq("user_id", user["id"]).order("joined_at").limit(1).execute()
+        
+        if not tenant_user_result.data:
+            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=NoTenantFound")
+            
+        tenant_user = tenant_user_result.data[0]
+        tenant_id = tenant_user["tenant_id"]
+        role = tenant_user["role"]
+        
+        tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
+        tenant_status = tenant_result.data[0]["status"] if tenant_result.data else "active"
+        
+        user_id = user["id"]
+    else:
+        # NEW USER -> create their account and an isolated tenant automatically
+        user_id = str(uuid.uuid4())
+        tenant_id = str(uuid.uuid4())
+        
+        # Generate random password since they use OAuth
+        import secrets
+        password_hash = hash_password(secrets.token_urlsafe(32))
+        
+        # Create user
+        db.client.table("users").insert({
+            "id": user_id,
+            "email": email,
+            "password_hash": password_hash,
+            "full_name": full_name,
+            "email_verified": True, # OAuth emails are inherently verified
+            "is_active": True,
+            "created_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        # Create tenant
+        db.client.table("tenants").insert({
+            "id": tenant_id,
+            "email": email,
+            "status": "onboarding",
+            "created_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        # Link user to tenant
+        db.client.table("tenant_users").insert({
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "role": "owner",
+            "joined_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        # Setup onboarding state
+        db.client.table("onboarding_progress").insert({
+            "tenant_id": tenant_id,
+            "stage_basic_info": False,
+            "stage_compliance": False,
+            "stage_intent": False,
+            "started_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        tenant_status = "onboarding"
+        role = "owner"
+
+    # Generate Secure JWT
+    token_data = {
+        "user_id": user_id,
+        "tenant_id": tenant_id,
+        "email": email,
+        "role": role
+    }
+    
+    access_token = create_access_token(token_data)
+    
+    # Update last login timestamp
+    db.client.table("users").update({
+        "last_login_at": datetime.utcnow().isoformat()
+    }).eq("id", user_id).execute()
+    
+    # Finally, redirect back to NEXT.JS with the secure JWT parameter
+    from urllib.parse import urlencode
+    
+    # Encode params safely
+    params = urlencode({
+        "token": access_token,
+        "tenant_status": tenant_status,
+        "user_id": user_id,
+        "email": email,
+        "full_name": full_name,
+        "tenant_id": tenant_id,
+        "role": role
+    })
+    
+    return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?{params}")

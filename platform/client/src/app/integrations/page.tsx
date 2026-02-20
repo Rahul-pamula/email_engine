@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
     ];
 
     return (
-        <div style={{ minWidth: '1280px', maxWidth: '1440px', margin: '0 auto', padding: '24px', backgroundColor: '#FFFFFF' }}>
+        <div style={{ minWidth: '1280px', maxWidth: '1440px', margin: '0 auto', padding: '24px', backgroundColor: 'var(--bg-primary)' }}>
             {/* Page Title Section */}
             <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -141,7 +141,7 @@ export default function IntegrationsPage() {
                 {/* LEFT COLUMN - Integrations Panel */}
                 <div>
                     <div style={{
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'var(--bg-card)',
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
                         padding: '20px',
@@ -239,7 +239,7 @@ export default function IntegrationsPage() {
                 {/* CENTER COLUMN - Data Flow Visualization */}
                 <div>
                     <div style={{
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'var(--bg-card)',
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
                         padding: '20px',
@@ -264,7 +264,7 @@ export default function IntegrationsPage() {
                                             onMouseEnter={() => setHoveredNode(node.id)}
                                             onMouseLeave={() => setHoveredNode(null)}
                                             style={{
-                                                backgroundColor: isHovered ? '#f1f5f9' : '#ffffff',
+                                                backgroundColor: isHovered ? 'var(--bg-hover)' : 'var(--bg-card)',
                                                 border: `1px solid ${isBeforeHovered ? '#2563eb' : '#e2e8f0'}`,
                                                 borderRadius: '8px',
                                                 padding: '16px',
@@ -320,7 +320,7 @@ export default function IntegrationsPage() {
                 {/* RIGHT COLUMN - Campaign Output */}
                 <div>
                     <div style={{
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'var(--bg-card)',
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
                         padding: '20px',
@@ -355,7 +355,7 @@ export default function IntegrationsPage() {
                             </p>
 
                             <div style={{
-                                backgroundColor: '#ffffff',
+                                backgroundColor: 'var(--bg-card)',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '4px',
                                 padding: '12px',
@@ -385,7 +385,7 @@ export default function IntegrationsPage() {
                                     backgroundColor: '#2563eb',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    color: '#ffffff',
+                                    color: 'white',
                                     fontSize: '13px',
                                     fontWeight: 500,
                                     cursor: 'pointer',
@@ -419,7 +419,7 @@ export default function IntegrationsPage() {
                                 backgroundColor: '#2563eb',
                                 border: 'none',
                                 borderRadius: '6px',
-                                color: '#ffffff',
+                                color: 'white',
                                 fontSize: '14px',
                                 fontWeight: 500,
                                 cursor: 'pointer',

@@ -28,5 +28,5 @@ bleach>=6.1.0
 # Auth Security (Phase 1.5)
 slowapi>=0.1.9          # Rate limiting per endpoint
 python-jose[cryptography]>=3.3.0  # JWT encode/decode
-passlib[bcrypt]>=1.7.4  # Password hashing
+bcrypt>=4.0.0  # Password hashing
 python-multipart>=0.0.9 # Form parsing (FastAPI forms)

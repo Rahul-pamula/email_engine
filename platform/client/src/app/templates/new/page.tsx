@@ -65,7 +65,7 @@ export default function NewTemplatePage() {
     // Styles
     const colors = {
         primary: "#2563eb",
-        bg: "#ffffff",
+        bg: "var(--bg-primary)",
         text: "#1e293b",
         textSecondary: "#64748b",
         border: "#e2e8f0",

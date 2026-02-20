@@ -13,7 +13,7 @@ import {
    ============================================================ */
 
 const colors = {
-    bgPrimary: '#ffffff',
+    bgPrimary: 'var(--bg-primary)',
     bgSecondary: '#f8fafc',
     bgElevated: '#f1f5f9',
     borderSubtle: '#e2e8f0',

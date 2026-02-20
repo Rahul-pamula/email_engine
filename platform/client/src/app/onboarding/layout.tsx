@@ -27,7 +27,7 @@ export default function OnboardingLayout({ children }: OnboardingLayoutProps) {
                     alignItems: 'center',
                     gap: '8px',
                     padding: '8px 16px',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: 'var(--bg-card)',
                     border: '1px solid #e2e8f0',
                     borderRadius: '6px',
                     color: '#64748b',

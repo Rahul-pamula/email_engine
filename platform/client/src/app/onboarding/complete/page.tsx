@@ -15,7 +15,6 @@ export default function OnboardingComplete() {
         let mounted = true;
 
         const completeOnboarding = async () => {
-            // Prevent double-call in Strict Mode or if already active
             const userDataStr = localStorage.getItem('user_data');
             if (userDataStr) {
                 const userData = JSON.parse(userDataStr);
@@ -40,10 +39,7 @@ export default function OnboardingComplete() {
                     throw new Error('Failed to complete onboarding');
                 }
 
-                // Update user status in context & localStorage
                 await refreshUserStatus();
-
-                // Update cookie for middleware
                 document.cookie = `tenant_status=active; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
                 if (mounted) setStatus('success');
@@ -64,28 +60,15 @@ export default function OnboardingComplete() {
 
     const handleGoToDashboard = () => {
         setSubmitting(true);
-        // Force a hard reload to ensure middleware sees the new cookie
         window.location.href = '/dashboard';
     };
 
     if (status === 'loading') {
         return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f8fafc',
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <Loader2 style={{ width: '48px', height: '48px', color: '#2563eb', animation: 'spin 1s linear infinite' }} />
-                    <p style={{ marginTop: '16px', color: '#64748b' }}>Finalizing setup...</p>
-                    <style jsx>{`
-                        @keyframes spin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                        }
-                    `}</style>
+            <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
+                <div className="text-center">
+                    <Loader2 className="w-12 h-12 text-[var(--accent)] animate-spin mx-auto" />
+                    <p className="mt-4 text-[var(--text-muted)]">Finalizing setup...</p>
                 </div>
             </div>
         );
@@ -93,28 +76,16 @@ export default function OnboardingComplete() {
 
     if (status === 'error') {
         return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f8fafc',
-            }}>
-                <div style={{ textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
-                    <div style={{ color: '#dc2626', marginBottom: '16px' }}>⚠️</div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Setup Failed</h2>
-                    <p style={{ color: '#64748b', marginBottom: '24px' }}>
-                        We couldn't activate your workspace. Please try again or contact support.
+            <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
+                <div className="text-center max-w-sm p-6">
+                    <div className="text-4xl mb-4">⚠️</div>
+                    <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Setup Failed</h2>
+                    <p className="text-[var(--text-muted)] mb-6">
+                        We couldn&apos;t activate your workspace. Please try again or contact support.
                     </p>
                     <button
                         onClick={() => window.location.reload()}
-                        style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            cursor: 'pointer'
-                        }}
+                        className="px-5 py-2.5 text-sm font-medium border border-[var(--border)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
                     >
                         Try Again
                     </button>
@@ -124,90 +95,31 @@ export default function OnboardingComplete() {
     }
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#f8fafc',
-            padding: '24px',
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: '600px',
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                padding: '64px 48px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                textAlign: 'center',
-            }}>
+        <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-[var(--bg-card)] p-12 shadow-xl border border-[var(--border)] text-center">
                 {/* Success Icon */}
-                <div style={{
-                    width: '80px',
-                    height: '80px',
-                    backgroundColor: '#dcfce7',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 32px auto',
-                }}>
-                    <CheckCircle2 style={{ width: '48px', height: '48px', color: '#16a34a' }} />
+                <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--success)]/10">
+                    <CheckCircle2 className="w-12 h-12 text-[var(--success)]" />
                 </div>
 
-                {/* Title */}
-                <h1 style={{
-                    fontSize: '36px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    marginBottom: '16px',
-                }}>
-                    You're all set 🎉
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">
+                    You&apos;re all set 🎉
                 </h1>
 
-                {/* Description */}
-                <p style={{
-                    fontSize: '18px',
-                    color: '#64748b',
-                    lineHeight: '1.6',
-                    marginBottom: '40px',
-                }}>
+                <p className="text-base text-[var(--text-muted)] leading-relaxed mb-10 max-w-sm mx-auto">
                     Your workspace is ready. You can now start sending events and building automation.
                 </p>
 
-                {/* Go to Dashboard Button */}
                 <button
                     onClick={handleGoToDashboard}
                     disabled={submitting}
-                    style={{
-                        width: '100%',
-                        maxWidth: '300px',
-                        padding: '16px 32px',
-                        fontSize: '18px',
-                        fontWeight: 600,
-                        color: '#ffffff',
-                        backgroundColor: '#2563eb',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: submitting ? 'not-allowed' : 'pointer',
-                        opacity: submitting ? 0.6 : 1,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        marginBottom: '24px',
-                    }}
+                    className="inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed mb-6"
                 >
                     {submitting ? 'Loading...' : 'Go to Dashboard'}
-                    {!submitting && <ArrowRight style={{ width: '20px', height: '20px' }} />}
+                    {!submitting && <ArrowRight className="w-5 h-5" />}
                 </button>
 
-                {/* Secondary Text */}
-                <p style={{
-                    fontSize: '14px',
-                    color: '#94a3b8',
-                    margin: 0,
-                }}>
+                <p className="text-sm text-[var(--text-muted)]">
                     You can update these settings anytime later.
                 </p>
             </div>

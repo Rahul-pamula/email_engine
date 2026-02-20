@@ -55,8 +55,6 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
     colors: any; onResolved: () => void;
 }) {
     const [email, setEmail] = useState(err.email || "");
-    const [firstName, setFirstName] = useState(err.first_name || "");
-    const [lastName, setLastName] = useState(err.last_name || "");
     const [saving, setSaving] = useState(false);
     const [resolved, setResolved] = useState(false);
 
@@ -72,7 +70,7 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
             const res = await fetch(`${API_BASE}/contacts/resolve-error`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ batch_id: batchId, error_index: idx, email, first_name: firstName, last_name: lastName })
+                body: JSON.stringify({ batch_id: batchId, error_index: idx, email })
             });
             if (res.ok) {
                 setResolved(true);
@@ -87,7 +85,7 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
 
     if (resolved) {
         return (
-            <tr style={{ backgroundColor: "#f0fdf4" }}>
+            <tr style={{ backgroundColor: "var(--success-bg)" }}>
                 <td colSpan={6} style={{ padding: "8px 12px", color: colors.success, fontSize: "12px", fontWeight: 500 }}>
                     ✓ {email} added successfully
                 </td>
@@ -101,12 +99,7 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
             <td style={{ padding: "6px 8px" }}>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" style={inputStyle} />
             </td>
-            <td style={{ padding: "6px 8px" }}>
-                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First" style={inputStyle} />
-            </td>
-            <td style={{ padding: "6px 8px" }}>
-                <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last" style={inputStyle} />
-            </td>
+
             <td style={{ padding: "6px 12px", color: colors.danger, fontSize: "11px" }}>{err.reason}</td>
             <td style={{ padding: "6px 8px" }}>
                 <button
@@ -114,7 +107,7 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
                     disabled={saving || !email.trim()}
                     style={{
                         padding: "4px 10px", fontSize: "11px", fontWeight: 500,
-                        color: "#fff", backgroundColor: saving ? "#9ca3af" : colors.success,
+                        color: "white", backgroundColor: saving ? "var(--text-muted)" : colors.success,
                         border: "none", borderRadius: "4px", cursor: saving ? "wait" : "pointer",
                         display: "flex", alignItems: "center", gap: "3px"
                     }}
@@ -181,8 +174,6 @@ export default function ContactsPage() {
         return Object.entries(columnMappings).find(([_, v]) => v === target)?.[0] || "";
     };
     const emailCol = getMappedCol("email");
-    const firstNameCol = getMappedCol("first_name");
-    const lastNameCol = getMappedCol("last_name");
 
     // ===== Data Fetching =====
     const fetchStats = async () => {
@@ -264,13 +255,9 @@ export default function ContactsPage() {
                     const lower = col.toLowerCase().trim();
                     if (lower === "email" || lower === "email address" || lower === "e-mail") {
                         autoMap[col] = "email";
-                    } else if (lower.includes("first") && lower.includes("name") || lower === "first_name" || lower === "firstname") {
-                        autoMap[col] = "first_name";
-                    } else if (lower.includes("last") && lower.includes("name") || lower === "last_name" || lower === "lastname") {
-                        autoMap[col] = "last_name";
                     } else {
-                        // Auto-map unknown columns as custom fields
-                        autoMap[col] = `custom:${lower.replace(/\s+/g, "_")}`;
+                        // Default to skip to prevent clutter; users can enable as custom fields if they want
+                        autoMap[col] = "skip";
                     }
                 });
                 setColumnMappings(autoMap);
@@ -279,7 +266,10 @@ export default function ContactsPage() {
                 const err = await res.json();
                 alert(err.detail || "Preview failed");
             }
-        } catch (e) { alert("Upload failed"); }
+        } catch (e: any) {
+            console.error("Upload error caught:", e);
+            alert(`Upload failed: ${e.message || e}`);
+        }
         setUploading(false);
     };
 
@@ -290,8 +280,6 @@ export default function ContactsPage() {
             const formData = new FormData();
             formData.append("file", file);
             const params = new URLSearchParams({ email_col: emailCol });
-            if (firstNameCol) params.set("first_name_col", firstNameCol);
-            if (lastNameCol) params.set("last_name_col", lastNameCol);
 
             // Build custom field mappings
             const customMappings: Record<string, string> = {};
@@ -390,16 +378,16 @@ export default function ContactsPage() {
 
     // ===== Styles =====
     const colors = {
-        bg: "#ffffff",
-        bgMuted: "#f8fafc",
-        border: "#e2e8f0",
-        text: "#0f172a",
-        textSecondary: "#64748b",
-        accent: "#2563eb",
-        danger: "#dc2626",
-        dangerBg: "#fef2f2",
-        dangerBorder: "#fecaca",
-        success: "#16a34a"
+        bg: "var(--bg-primary)",
+        bgMuted: "var(--bg-card)",
+        border: "var(--border)",
+        text: "var(--text-primary)",
+        textSecondary: "var(--text-muted)",
+        accent: "var(--accent)",
+        danger: "var(--danger)",
+        dangerBg: "var(--danger-bg)",
+        dangerBorder: "var(--danger-border)",
+        success: "var(--success)"
     };
 
     const tabStyle = (active: boolean) => ({
@@ -421,7 +409,7 @@ export default function ContactsPage() {
         padding: "8px 16px",
         fontSize: "14px",
         fontWeight: 500,
-        color: "#fff",
+        color: "white",
         backgroundColor: colors.accent,
         border: "none",
         borderRadius: "6px",
@@ -474,7 +462,7 @@ export default function ContactsPage() {
                             {stats.usage_percent}% used
                         </span>
                     </div>
-                    <div style={{ height: "4px", backgroundColor: "#e5e7eb", borderRadius: "2px" }}>
+                    <div style={{ height: "4px", backgroundColor: "var(--bg-hover)", borderRadius: "2px" }}>
                         <div style={{
                             height: "100%",
                             width: `${Math.min(stats.usage_percent, 100)}%`,
@@ -525,8 +513,8 @@ export default function ContactsPage() {
                             alignItems: "center",
                             gap: "12px",
                             padding: "10px 16px",
-                            backgroundColor: "#eef2ff",
-                            border: `1px solid #c7d2fe`,
+                            backgroundColor: "var(--info-bg)",
+                            border: `1px solid var(--accent)`,
                             borderRadius: "8px",
                             marginBottom: "16px"
                         }}>
@@ -556,8 +544,6 @@ export default function ContactsPage() {
                                         />
                                     </th>
                                     <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Email</th>
-                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>First Name</th>
-                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Last Name</th>
                                     {customFieldKeys.map(key => (
                                         <th key={key} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary, textTransform: "capitalize" }}>
                                             {key.replace(/_/g, " ")}
@@ -569,10 +555,10 @@ export default function ContactsPage() {
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={6 + customFieldKeys.length} style={{ padding: "32px", textAlign: "center", color: colors.textSecondary }}>Loading...</td></tr>
+                                    <tr><td colSpan={4 + customFieldKeys.length} style={{ padding: "32px", textAlign: "center", color: colors.textSecondary }}>Loading...</td></tr>
                                 ) : contacts.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6 + customFieldKeys.length} style={{ padding: "48px", textAlign: "center" }}>
+                                        <td colSpan={4 + customFieldKeys.length} style={{ padding: "48px", textAlign: "center" }}>
                                             <p style={{ color: colors.textSecondary, marginBottom: "12px" }}>No contacts yet. Upload a CSV or Excel file to get started.</p>
                                             <button onClick={() => setShowUpload(true)} style={btnPrimary}>Upload Contacts</button>
                                         </td>
@@ -588,8 +574,6 @@ export default function ContactsPage() {
                                             />
                                         </td>
                                         <td style={{ padding: "10px 12px", color: colors.text, fontWeight: 500 }}>{c.email}</td>
-                                        <td style={{ padding: "10px 12px", color: colors.textSecondary }}>{c.first_name || "—"}</td>
-                                        <td style={{ padding: "10px 12px", color: colors.textSecondary }}>{c.last_name || "—"}</td>
                                         {customFieldKeys.map(key => (
                                             <td key={key} style={{ padding: "10px 12px", color: colors.textSecondary }}>
                                                 {c.custom_fields?.[key] || "—"}
@@ -727,7 +711,7 @@ export default function ContactsPage() {
                                     {/* Expanded error details */}
                                     {expandedBatch === b.id && b.errors && (Array.isArray(b.errors) ? b.errors : JSON.parse(b.errors as any)).length > 0 && (
                                         <tr>
-                                            <td colSpan={6} style={{ padding: "0 16px 16px", backgroundColor: "#fefcfb" }}>
+                                            <td colSpan={6} style={{ padding: "0 16px 16px", backgroundColor: "var(--bg-card)" }}>
                                                 <div style={{
                                                     border: `1px solid ${colors.dangerBorder}`,
                                                     borderRadius: "8px",
@@ -748,11 +732,9 @@ export default function ContactsPage() {
                                                     </div>
                                                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                                                         <thead>
-                                                            <tr style={{ backgroundColor: "#fef8f6" }}>
+                                                            <tr style={{ backgroundColor: "var(--bg-hover)" }}>
                                                                 <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary, width: "50px" }}>Row</th>
                                                                 <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Email</th>
-                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>First Name</th>
-                                                                <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Last Name</th>
                                                                 <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Reason</th>
                                                                 <th style={{ padding: "8px 12px", width: "80px" }}></th>
                                                             </tr>
@@ -789,7 +771,7 @@ export default function ContactsPage() {
             {/* ===== MODAL: Upload Flow ===== */}
             {showUpload && (
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "480px", maxHeight: "80vh", overflowY: "auto" }}>
+                    <div className="glass-panel" style={{ padding: "24px", width: "480px", maxHeight: "80vh", overflowY: "auto" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                             <h2 style={{ fontSize: "18px", fontWeight: 600, margin: 0, color: colors.text }}>
                                 Import Contacts (Step {uploadStep}/4)
@@ -833,7 +815,7 @@ export default function ContactsPage() {
                                         const customName = isCustom ? mapping.replace("custom:", "") : "";
 
                                         return (
-                                            <div key={col} style={{ marginBottom: "10px", padding: "8px 10px", borderRadius: "6px", backgroundColor: mapping !== "skip" ? "#f8fafc" : "transparent", border: `1px solid ${mapping !== "skip" ? colors.border : "transparent"}` }}>
+                                            <div key={col} style={{ marginBottom: "10px", padding: "8px 10px", borderRadius: "6px", backgroundColor: mapping !== "skip" ? "var(--bg-hover)" : "transparent", border: `1px solid ${mapping !== "skip" ? colors.border : "transparent"}` }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                                     <span style={{
                                                         fontSize: "13px", fontWeight: 500, color: colors.text,
@@ -863,13 +845,11 @@ export default function ContactsPage() {
                                                         }}
                                                         style={{
                                                             flex: 1, padding: "6px 8px", fontSize: "13px",
-                                                            border: `1px solid ${colors.border}`, borderRadius: "6px", backgroundColor: "#fff"
+                                                            border: `1px solid ${colors.border}`, borderRadius: "6px", backgroundColor: "var(--bg-card)"
                                                         }}
                                                     >
                                                         <option value="skip">⊘ Skip</option>
                                                         <option value="email" disabled={!!getMappedCol("email") && getMappedCol("email") !== col}>📧 Email (required)</option>
-                                                        <option value="first_name" disabled={!!getMappedCol("first_name") && getMappedCol("first_name") !== col}>👤 First Name</option>
-                                                        <option value="last_name" disabled={!!getMappedCol("last_name") && getMappedCol("last_name") !== col}>👤 Last Name</option>
                                                         <option value="custom">📋 Custom Field</option>
                                                     </select>
                                                 </div>
@@ -888,11 +868,11 @@ export default function ContactsPage() {
                                                             style={{
                                                                 width: "100%", padding: "5px 8px", fontSize: "12px",
                                                                 border: `1px solid ${colors.border}`, borderRadius: "4px",
-                                                                backgroundColor: "#fff"
+                                                                backgroundColor: "var(--bg-card)"
                                                             }}
                                                         />
                                                         <p style={{ margin: "2px 0 0", fontSize: "11px", color: colors.textSecondary }}>
-                                                            Stored as: <code style={{ fontSize: "11px", backgroundColor: "#f1f5f9", padding: "1px 4px", borderRadius: "2px" }}>{customName || "..."}</code>
+                                                            Stored as: <code style={{ fontSize: "11px", backgroundColor: "var(--bg-hover)", padding: "1px 4px", borderRadius: "2px" }}>{customName || "..."}</code>
                                                         </p>
                                                     </div>
                                                 )}
@@ -942,7 +922,7 @@ export default function ContactsPage() {
                         {uploadStep === 4 && importResult && (
                             <div style={{ textAlign: "center" }}>
                                 <div style={{
-                                    width: "48px", height: "48px", borderRadius: "50%", backgroundColor: "#dcfce7",
+                                    width: "48px", height: "48px", borderRadius: "50%", backgroundColor: "var(--success-bg)",
                                     display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px"
                                 }}>
                                     <Check style={{ width: "24px", height: "24px", color: colors.success }} />
@@ -1005,7 +985,7 @@ export default function ContactsPage() {
             {/* ===== MODAL: Bulk Delete Confirm ===== */}
             {showBulkDelete && (
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "400px" }}>
+                    <div className="glass-panel" style={{ padding: "24px", width: "400px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                             <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
                             <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.text }}>Delete {selected.size} Contact{selected.size > 1 ? "s" : ""}?</h3>
@@ -1024,7 +1004,7 @@ export default function ContactsPage() {
             {/* ===== MODAL: Delete All (Type to Confirm) ===== */}
             {showDeleteAll && (
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "440px" }}>
+                    <div className="glass-panel" style={{ padding: "24px", width: "440px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                             <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
                             <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.danger }}>Delete All Contacts</h3>
@@ -1059,7 +1039,7 @@ export default function ContactsPage() {
             {/* ===== MODAL: Delete Batch Confirm ===== */}
             {showBatchDelete && (
                 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-                    <div style={{ backgroundColor: "#fff", borderRadius: "12px", padding: "24px", width: "420px" }}>
+                    <div className="glass-panel" style={{ padding: "24px", width: "420px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                             <AlertTriangle style={{ width: "20px", height: "20px", color: colors.danger }} />
                             <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: colors.text }}>Delete Import Batch?</h3>

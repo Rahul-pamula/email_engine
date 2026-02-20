@@ -1,40 +1,24 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-    Mail,
-    ChevronLeft,
-    LogOut
-} from "lucide-react";
-import { useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Mail, ChevronLeft, LogOut, Activity, Users, Zap, LayoutTemplate, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 /* ============================================================
-   SIDEBAR - Light Mode
+   SIDEBAR - Premium Dark Mode
+   Uses CSS variables from globals.css for consistent theming
    ============================================================ */
 
 const navItems = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Contacts", href: "/contacts" },
-    { name: "Events", href: "/events" },
-    { name: "Campaigns", href: "/campaigns" },
-    { name: "Templates", href: "/templates" },
-    { name: "Settings", href: "/settings" },
+    { name: 'Dashboard', href: '/dashboard', icon: Activity },
+    { name: 'Contacts', href: '/contacts', icon: Users },
+    { name: 'Events', href: '/events', icon: Zap },
+    { name: 'Campaigns', href: '/campaigns', icon: Zap }, // Using Zap for campaigns too or a different icon
+    { name: 'Templates', href: '/templates', icon: LayoutTemplate },
+    { name: 'Settings', href: '/settings', icon: Settings },
 ];
-
-// Light Mode Colors
-const colors = {
-    bgPrimary: '#ffffff',
-    bgSecondary: '#f8fafc',    // slate-50
-    bgElevated: '#f1f5f9',     // slate-100
-    borderSubtle: '#e2e8f0',   // slate-200
-    borderDefault: '#cbd5e1',  // slate-300
-    textPrimary: '#0f172a',    // slate-900
-    textSecondary: '#475569',  // slate-600
-    textMuted: '#94a3b8',      // slate-400
-    accentBlue: '#2563eb',     // blue-600
-};
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -42,97 +26,90 @@ export default function Sidebar() {
     const { logout } = useAuth();
 
     return (
-        <aside style={{
-            width: collapsed ? '64px' : '224px',
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: colors.bgSecondary,
-            borderRight: `1px solid ${colors.borderSubtle}`,
-            flexShrink: 0,
-            transition: 'width 200ms ease',
-        }}>
+        <aside
+            className="flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out border-r border-[var(--border)] relative z-20"
+            style={{
+                width: collapsed ? '72px' : '260px',
+                height: '100vh',
+                backgroundColor: 'rgba(9, 9, 11, 0.65)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)'
+            }}
+        >
             {/* Logo Area */}
-            <div style={{
-                height: '56px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 16px',
-                borderBottom: `1px solid ${colors.borderSubtle}`,
-            }}>
+            <div className="h-20 flex items-center justify-between px-5 border-b border-[var(--border)]">
                 {!collapsed && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            backgroundColor: colors.accentBlue,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <Mail style={{ width: '16px', height: '16px', color: 'white' }} />
+                    <div className="flex items-center gap-3 animate-fade-in">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-[var(--shadow-glow)]">
+                            <Mail className="w-4 h-4 text-white" />
                         </div>
-                        <span style={{
-                            fontWeight: 600,
-                            fontSize: '14px',
-                            color: colors.textPrimary,
-                            letterSpacing: '-0.01em',
-                        }}>
+                        <span className="font-bold text-[15px] text-[var(--text-primary)] tracking-tight">
                             Email Engine
                         </span>
                     </div>
                 )}
+                {collapsed && (
+                    <div className="w-full flex justify-center animate-fade-in">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <Mail className="w-4 h-4 text-white" />
+                        </div>
+                    </div>
+                )}
 
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    style={{
-                        padding: '6px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: colors.textMuted,
-                        cursor: 'pointer',
-                    }}
-                >
-                    <ChevronLeft style={{
-                        width: '16px',
-                        height: '16px',
-                        transform: collapsed ? 'rotate(180deg)' : 'none',
-                        transition: 'transform 200ms ease',
-                    }} />
-                </button>
+                {/* Collapse Toggle */}
+                {!collapsed && (
+                    <button
+                        onClick={() => setCollapsed(true)}
+                        className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                )}
             </div>
 
+            {/* Expand Toggle (when collapsed) */}
+            {collapsed && (
+                <button
+                    onClick={() => setCollapsed(false)}
+                    className="absolute top-[88px] right-[-12px] bg-[var(--bg-card)] border border-[var(--border)] rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] shadow-md z-30 transition-transform hover:scale-110"
+                >
+                    <ChevronLeft className="w-3 h-3 rotate-180" />
+                </button>
+            )}
+
             {/* Navigation */}
-            <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href ||
-                            (item.href !== "/" && pathname.startsWith(item.href));
+            <nav className="flex-1 py-6 px-3 overflow-y-auto">
+                <div className="mb-4 px-3 text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase">
+                    {!collapsed && <span>Menu</span>}
+                    {collapsed && <span className="flex justify-center">•</span>}
+                </div>
+
+                <ul className="space-y-1.5">
+                    {navItems.map((item, i) => {
+                        const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                        const Icon = item.icon;
 
                         return (
-                            <li key={item.name} style={{ marginBottom: '4px' }}>
+                            <li key={item.name} className={`stagger-${(i % 4) + 1} animate-slide-right`}>
                                 <Link
                                     href={item.href}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        fontWeight: 500,
-                                        textDecoration: 'none',
-                                        color: isActive ? colors.accentBlue : colors.textSecondary,
-                                        backgroundColor: isActive ? `${colors.accentBlue}10` : 'transparent',
-                                        transition: 'all 150ms ease',
-                                    }}
+                                    className={`
+                                        group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                                        ${isActive
+                                            ? 'text-white bg-[var(--accent)]/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-[var(--accent)]/20'
+                                            : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent'}
+                                    `}
                                     title={collapsed ? item.name : undefined}
                                 >
-                                    {!collapsed && <span>{item.name}</span>}
-                                    {collapsed && <span style={{ fontSize: '12px' }}>{item.name.charAt(0)}</span>}
+                                    {isActive && (
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-blue-400 to-violet-500 rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+                                    )}
+
+                                    <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-[var(--accent)]' : 'group-hover:text-[var(--text-secondary)]'}`} />
+
+                                    {!collapsed && (
+                                        <span className="truncate">{item.name}</span>
+                                    )}
                                 </Link>
                             </li>
                         );
@@ -141,36 +118,17 @@ export default function Sidebar() {
             </nav>
 
             {/* Footer with Logout */}
-            <div style={{
-                padding: '12px',
-                borderTop: `1px solid ${colors.borderSubtle}`,
-            }}>
+            <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-card)]/50">
                 <button
                     onClick={logout}
-                    style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: collapsed ? 'center' : 'flex-start',
-                        gap: '12px',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        border: 'none',
-                        background: 'transparent',
-                        color: colors.textSecondary,
-                        cursor: 'pointer',
-                        transition: 'all 150ms ease',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = colors.bgElevated;
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
+                    className={`
+                        w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                        text-[var(--text-muted)] hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent group
+                        ${collapsed ? 'justify-center' : 'justify-start'}
+                    `}
+                    title={collapsed ? "Log Out" : undefined}
                 >
-                    <LogOut style={{ width: '18px', height: '18px' }} />
+                    <LogOut className="w-5 h-5 group-hover:text-red-400 transition-colors" />
                     {!collapsed && <span>Log Out</span>}
                 </button>
             </div>

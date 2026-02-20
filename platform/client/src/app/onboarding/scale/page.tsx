@@ -55,110 +55,45 @@ export default function ScaleOnboarding() {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#f8fafc',
-            padding: '24px',
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: '600px',
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                padding: '48px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            }}>
+        <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-[var(--bg-card)] p-8 shadow-xl border border-[var(--border)]">
                 {/* Progress Indicator */}
-                <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-                    <p style={{
-                        fontSize: '14px',
-                        color: '#64748b',
-                        fontWeight: 500,
-                        marginBottom: '8px',
-                    }}>
-                        Step 4 of 4
-                    </p>
-                    <div style={{
-                        width: '100%',
-                        height: '4px',
-                        backgroundColor: '#e2e8f0',
-                        borderRadius: '2px',
-                        overflow: 'hidden',
-                    }}>
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            backgroundColor: '#2563eb',
-                            transition: 'width 300ms ease',
-                        }} />
+                <div className="mb-4">
+                    <p className="text-center text-sm font-medium text-[var(--text-muted)]">Step 4 of 4</p>
+                    <div className="mt-2 h-1 w-full rounded-full bg-[var(--border)]">
+                        <div className="h-1 w-full rounded-full bg-[var(--accent)]"></div>
                     </div>
                 </div>
 
                 {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                    <div style={{
-                        width: '56px',
-                        height: '56px',
-                        backgroundColor: '#dbeafe',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 20px auto',
-                    }}>
-                        <TrendingUp style={{ width: '28px', height: '28px', color: '#2563eb' }} />
+                <div className="mb-8 text-center">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent)]/10">
+                        <TrendingUp className="h-6 w-6 text-[var(--accent)]" />
                     </div>
-                    <h1 style={{
-                        fontSize: '28px',
-                        fontWeight: 700,
-                        color: '#0f172a',
-                        marginBottom: '12px',
-                    }}>
+                    <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-2">
                         How many events do you expect per month?
                     </h1>
-                    <p style={{
-                        fontSize: '14px',
-                        color: '#64748b',
-                        lineHeight: '1.5',
-                    }}>
+                    <p className="text-sm text-[var(--text-muted)] leading-relaxed">
                         Used only to set sensible defaults.
                     </p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {errors.general && (
-                        <div style={{
-                            padding: '12px 16px',
-                            backgroundColor: '#fee2e2',
-                            border: '1px solid #fecaca',
-                            borderRadius: '8px',
-                            color: '#dc2626',
-                            fontSize: '14px',
-                        }}>
+                        <div className="p-3 bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-lg text-[var(--danger)] text-sm">
                             {errors.general}
                         </div>
                     )}
 
-                    {/* Scale Options */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                         {scaleOptions.map((option) => (
                             <label
                                 key={option.value}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    padding: '16px',
-                                    border: `2px solid ${selectedScale === option.value ? '#2563eb' : '#e2e8f0'}`,
-                                    borderRadius: '8px',
-                                    backgroundColor: selectedScale === option.value ? '#eff6ff' : '#ffffff',
-                                    cursor: 'pointer',
-                                    transition: 'all 150ms ease',
-                                }}
+                                className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedScale === option.value
+                                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                                        : 'border-[var(--border)] hover:border-[var(--accent)]/50'
+                                    }`}
                             >
                                 <input
                                     type="radio"
@@ -167,54 +102,24 @@ export default function ScaleOnboarding() {
                                     checked={selectedScale === option.value}
                                     onChange={(e) => setSelectedScale(e.target.value)}
                                     disabled={loading}
-                                    style={{
-                                        width: '18px',
-                                        height: '18px',
-                                        cursor: 'pointer',
-                                    }}
+                                    className="w-4 h-4 cursor-pointer accent-[var(--accent)]"
                                 />
-                                <p style={{
-                                    fontSize: '16px',
-                                    fontWeight: 500,
-                                    color: '#0f172a',
-                                    margin: 0,
-                                }}>
-                                    {option.label}
-                                </p>
+                                <p className="text-sm font-medium text-[var(--text-primary)]">{option.label}</p>
                             </label>
                         ))}
                     </div>
 
                     {errors.scale && (
-                        <p style={{ fontSize: '14px', color: '#dc2626' }}>
-                            {errors.scale}
-                        </p>
+                        <p className="text-sm text-[var(--danger)]">{errors.scale}</p>
                     )}
 
-                    {/* Finish Button */}
                     <button
                         type="submit"
                         disabled={loading}
-                        style={{
-                            width: '100%',
-                            padding: '14px 24px',
-                            fontSize: '16px',
-                            fontWeight: 600,
-                            color: '#ffffff',
-                            backgroundColor: '#2563eb',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.6 : 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            marginTop: '8px',
-                        }}
+                        className="w-full mt-2 py-3.5 px-6 text-base font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {loading ? 'Saving...' : 'Finish Setup'}
-                        {!loading && <ArrowRight style={{ width: '18px', height: '18px' }} />}
+                        {!loading && <ArrowRight className="w-5 h-5" />}
                     </button>
                 </form>
             </div>

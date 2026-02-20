@@ -18,6 +18,7 @@ interface AuthContextType {
     isLoading: boolean;
     token: string | null;
     login: (email: string, password: string) => Promise<void>;
+    signup: (email: string, password: string, tenantName: string, firstName?: string, lastName?: string) => Promise<void>;
     logout: () => void;
     refreshUserStatus: () => Promise<void>;
 }
@@ -157,6 +158,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const signup = async (email: string, password: string, tenantName: string, firstName?: string, lastName?: string) => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    password,
+                    tenant_name: tenantName,
+                    first_name: firstName,
+                    last_name: lastName
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Signup failed');
+            }
+
+            // After successful signup, immediately log them in
+            await login(email, password);
+        } catch (error) {
+            console.error('Signup error:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
@@ -186,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isLoading,
                 token: typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null,
                 login,
+                signup,
                 logout,
                 refreshUserStatus,
             }}

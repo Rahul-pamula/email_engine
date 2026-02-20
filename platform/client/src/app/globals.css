@@ -3,106 +3,70 @@
 @tailwind utilities;
 
 /* ============================================================
-   EMAIL ENGINE — Design System Tokens
-   Define once here. Use CSS vars everywhere. Never hardcode hex.
+   EMAIL ENGINE — Premium UI Design System
+   Sleek, dark, glassmorphic aesthetic inspired by top SaaS
    ============================================================ */
 
 :root {
-  /* Backgrounds */
-  --bg-primary: #0F172A;
-  /* page background */
-  --bg-card: #1E293B;
-  /* card surface */
-  --bg-hover: #293548;
-  /* hover state */
-  --bg-input: #0F172A;
-  /* input backgrounds */
+  /* Core Canvas */
+  --bg-primary: #09090B;
+  /* Deep zinc-950 canvas */
+  --bg-card: rgba(24, 24, 27, 0.6);
+  /* Translucent zinc-900 surface */
+  --bg-hover: rgba(39, 39, 42, 0.8);
+  /* zinc-800 hover */
+  --bg-input: rgba(9, 9, 11, 0.8);
 
-  /* Brand Accent */
+  /* Brand Accents (Vibrant Gradients) */
   --accent: #3B82F6;
-  /* primary blue CTA */
+  /* blue-500 */
   --accent-hover: #2563EB;
-  /* blue hover */
-  --accent-purple: #8B5CF6;
-  /* secondary / gradients */
+  /* blue-600 */
+  --accent-gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+  --accent-glow: rgba(59, 130, 246, 0.4);
 
-  /* Text */
-  --text-primary: #F1F5F9;
-  /* headings, labels */
-  --text-muted: #94A3B8;
-  /* descriptions, placeholders */
-  --text-inverted: #0F172A;
-  /* text on light backgrounds */
+  /* Text & Typography */
+  --text-primary: #FAFAFA;
+  /* zinc-50 */
+  --text-secondary: #E4E4E7;
+  /* zinc-200 */
+  --text-muted: #A1A1AA;
+  /* zinc-400 */
+  --text-inverted: #09090B;
 
-  /* Borders */
-  --border: #334155;
-  /* card borders, dividers */
-  --border-subtle: #1E293B;
-  /* very subtle separation */
+  /* Borders & Dividers */
+  --border: rgba(63, 63, 70, 0.4);
+  /* subtle zinc-700/40 border */
+  --border-highlight: rgba(161, 161, 170, 0.2);
 
-  /* Semantic Colors */
+  /* Semantic Feedback */
   --success: #10B981;
-  /* green — sent, verified */
-  --success-bg: #064E3B;
-  /* green badge bg */
+  --success-bg: rgba(6, 78, 59, 0.3);
+  --success-border: rgba(16, 185, 129, 0.2);
+
   --warning: #F59E0B;
-  /* yellow — 80% quota, paused */
-  --warning-bg: #451A03;
-  /* yellow badge bg */
+  --warning-bg: rgba(69, 26, 3, 0.3);
+  --warning-border: rgba(245, 158, 11, 0.2);
+
   --danger: #EF4444;
-  /* red — failed, blocked */
-  --danger-bg: #450A0A;
-  /* red badge bg */
-  --info: #60A5FA;
-  /* light blue — info states */
-  --info-bg: #1E3A5F;
-  /* info badge bg */
+  --danger-bg: rgba(69, 10, 10, 0.3);
+  --danger-border: rgba(239, 68, 68, 0.2);
 
-  /* Typography scale */
-  --text-h1: 1.75rem;
-  /* 28px bold headings */
-  --text-h2: 1.25rem;
-  /* 20px semibold */
-  --text-h3: 1rem;
-  /* 16px semibold */
-  --text-body: 0.875rem;
-  /* 14px body */
-  --text-caption: 0.75rem;
-  /* 12px captions */
-  --text-mono: 0.8125rem;
-  /* 13px monospace (IDs, codes) */
+  /* Radii & Shadows */
+  --radius: 0.75rem;
+  /* 12px default */
+  --radius-lg: 1rem;
+  /* 16px large */
+  --radius-xl: 1.5rem;
+  /* 24px extra large */
 
-  /* Spacing & Shape */
-  --radius: 0.5rem;
-  /* 8px radius */
-  --radius-lg: 0.75rem;
-  /* 12px large radius */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
-
-  /* shadcn-ui compatible variables */
-  --background: 0 0% 6%;
-  --foreground: 210 40% 96%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 96%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 96%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 96%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent-hsl: 217 91% 60%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-  --border-hsl: 215 28% 17%;
-  --input-hsl: 215 28% 17%;
-  --ring: 217 91% 60%;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px var(--accent-glow);
 }
 
 /* ============================================================
-   BASE RESET
+   BASE RESET & CANVAS SETUP
    ============================================================ */
 * {
   margin: 0;
@@ -114,22 +78,19 @@ html,
 body {
   height: 100%;
   background-color: var(--bg-primary);
+  /* Subtle dark radial gradient for depth */
+  background-image: radial-gradient(circle at 50% 0%, rgba(39, 39, 42, 0.4) 0%, rgba(9, 9, 11, 1) 70%);
+  background-attachment: fixed;
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: var(--text-body);
-  font-feature-settings: "cv11", "ss01";
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ============================================================
-   ACCESSIBILITY — WCAG 2.1 AA
-   IMPORTANT: Do NOT use *:focus { outline: none }
-   The rule below properly shows focus only for keyboard users.
-   ============================================================ */
+/* Focus States */
 *:focus {
   outline: none;
-  /* Remove default browser outline */
 }
 
 *:focus-visible {
@@ -138,9 +99,7 @@ body {
   border-radius: 4px;
 }
 
-/* ============================================================
-   SCROLLBAR
-   ============================================================ */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -156,75 +115,67 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(161, 161, 170, 0.5);
 }
 
 /* ============================================================
-   TYPOGRAPHY HELPERS
+   PREMIUM UTILITY CLASSES
    ============================================================ */
-.text-h1 {
-  font-size: var(--text-h1);
-  font-weight: 700;
-  color: var(--text-primary);
+
+/* Glass Panel */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
-.text-h2 {
-  font-size: var(--text-h2);
-  font-weight: 600;
-  color: var(--text-primary);
+/* Gradient Button */
+.btn-premium {
+  background: var(--accent-gradient);
+  color: white;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
 }
 
-.text-h3 {
-  font-size: var(--text-h3);
-  font-weight: 600;
-  color: var(--text-primary);
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-glow);
+  filter: brightness(1.1);
 }
 
-.text-body {
-  font-size: var(--text-body);
-  color: var(--text-primary);
+.btn-premium:active {
+  transform: translateY(0);
 }
 
-.text-caption {
-  font-size: var(--text-caption);
-  color: var(--text-muted);
-}
-
-.text-mono {
-  font-size: var(--text-mono);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  color: var(--text-muted);
+/* Gradient Text */
+.text-gradient {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
 }
 
 /* ============================================================
    ANIMATIONS
    ============================================================ */
-@keyframes pulse {
 
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes fadeIn {
+@keyframes slideUpFade {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(16px);
   }
 
   to {
@@ -233,10 +184,10 @@ body {
   }
 }
 
-@keyframes slideIn {
+@keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(-8px);
+    transform: translateX(16px);
   }
 
   to {
@@ -245,14 +196,53 @@ body {
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 15px 0 var(--accent-glow);
+  }
 }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
+.animate-slide-up {
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+.animate-slide-right {
+  animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Stagger items */
+.stagger-1 {
+  animation-delay: 0.1s;
+  opacity: 0;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+  opacity: 0;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
+  opacity: 0;
+}
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+  border-color: rgba(59, 130, 246, 0.5);
 }
