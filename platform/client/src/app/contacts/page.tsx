@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import {
     Search,
@@ -11,7 +13,8 @@ import {
     X,
     AlertTriangle,
     Check,
-    FileText
+    FileText,
+    Download
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -29,6 +32,7 @@ interface Contact {
     first_name: string | null;
     last_name: string | null;
     custom_fields: Record<string, string> | null;
+    tags?: string[];
     created_at: string;
 }
 
@@ -121,6 +125,7 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
 
 export default function ContactsPage() {
     const { token } = useAuth();
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<"contacts" | "history">("contacts");
 
     // Stats
@@ -405,6 +410,29 @@ export default function ContactsPage() {
         transition: "all 150ms"
     });
 
+    const handleExport = async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_BASE}/contacts/export`, { headers: apiHeaders(token) });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "contacts_export.csv";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                alert("Failed to export contacts");
+            }
+        } catch (e) {
+            console.error("Export error:", e);
+            alert("An error occurred during export.");
+        }
+    };
+
     const btnPrimary = {
         padding: "8px 16px",
         fontSize: "14px",
@@ -436,9 +464,14 @@ export default function ContactsPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                 <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>Contacts</h1>
-                <button onClick={() => setShowUpload(true)} style={btnPrimary}>
-                    <Upload style={{ width: "16px", height: "16px" }} /> Upload Contacts
-                </button>
+                <div style={{ display: "flex", gap: "12px" }}>
+                    <button onClick={handleExport} style={btnOutline}>
+                        <Download style={{ width: "16px", height: "16px" }} /> Export CSV
+                    </button>
+                    <button onClick={() => setShowUpload(true)} style={btnPrimary}>
+                        <Upload style={{ width: "16px", height: "16px" }} /> Upload Contacts
+                    </button>
+                </div>
             </div>
 
             {/* Stats Bar */}
@@ -481,6 +514,12 @@ export default function ContactsPage() {
                 </button>
                 <button onClick={() => setActiveTab("history")} style={tabStyle(activeTab === "history")}>
                     Import History
+                </button>
+                <div style={{ padding: "0 10px", display: "flex", alignItems: "center" }}>
+                    <div style={{ width: "1px", height: "20px", backgroundColor: colors.border }}></div>
+                </div>
+                <button onClick={() => router.push("/contacts/suppression")} style={tabStyle(false)}>
+                    Suppression List
                 </button>
             </div>
 
@@ -544,6 +583,7 @@ export default function ContactsPage() {
                                         />
                                     </th>
                                     <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Email</th>
+                                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary }}>Tags</th>
                                     {customFieldKeys.map(key => (
                                         <th key={key} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 500, color: colors.textSecondary, textTransform: "capitalize" }}>
                                             {key.replace(/_/g, " ")}
@@ -573,7 +613,21 @@ export default function ContactsPage() {
                                                 style={{ cursor: "pointer" }}
                                             />
                                         </td>
-                                        <td style={{ padding: "10px 12px", color: colors.text, fontWeight: 500 }}>{c.email}</td>
+                                        <td style={{ padding: "10px 12px", color: colors.accent, fontWeight: 500 }}>
+                                            <Link href={`/contacts/${c.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                                                {c.email}
+                                            </Link>
+                                        </td>
+                                        <td style={{ padding: "10px 12px", color: colors.textSecondary }}>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                                {c.tags?.map((t: string) => (
+                                                    <span key={t} style={{ padding: "2px 6px", fontSize: "11px", backgroundColor: "var(--bg-hover)", border: `1px solid ${colors.border}`, borderRadius: "4px" }}>
+                                                        {t}
+                                                    </span>
+                                                ))}
+                                                {(!c.tags || c.tags.length === 0) && "—"}
+                                            </div>
+                                        </td>
                                         {customFieldKeys.map(key => (
                                             <td key={key} style={{ padding: "10px 12px", color: colors.textSecondary }}>
                                                 {c.custom_fields?.[key] || "—"}

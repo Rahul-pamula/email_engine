@@ -178,6 +178,9 @@ Each phase has TWO parts:
   ✔ Contact status (subscribed, unsubscribed, bounced)
   ✔ Segmentation filters
   ✔ Bulk delete
+  ✔ Contact search endpoint (search by email, name, tag)
+  ✔ Tags CRUD API (add/remove/list tags per contact)
+  ✔ Soft delete: deleted_at column on contacts (restore within 30 days)
 
   [FRONTEND]
   ✔ Contacts list page (table with search, filter, pagination)
@@ -185,20 +188,10 @@ Each phase has TWO parts:
   ✔ Contact status badges (subscribed / unsubscribed / bounced)
   ✔ Segment builder UI (filter by field, value)
   ✔ Bulk action buttons (delete selected)
-
-  [MISSING UI]
-  ☐ Contact detail page (see individual contact activity)
-  ☐ Export contacts to CSV button
-  ☐ Tags UI (add/remove tags on contacts)
-  ☐ Suppression list page (view bounced/spam contacts)
-
-  [MISSING BACKEND]
-  ☐ Contact search endpoint (search by email, name, tag)
-  ☐ Tags CRUD API (add/remove/list tags per contact)
-  ☐ Soft delete: deleted_at column on contacts (restore within 30 days)
-      → GET /contacts returns only WHERE deleted_at IS NULL
-      → GET /contacts/deleted returns soft-deleted contacts
-      → POST /contacts/{id}/restore → sets deleted_at = NULL
+  ✔ Contact detail page (see individual contact activity)
+  ✔ Export contacts to CSV button
+  ✔ Tags UI (add/remove tags on contacts)
+  ✔ Suppression list page (view bounced/spam contacts)
 
 ─────────────────────────────────────────
 🏗 PHASE 3 — Template Engine ⚠ STABILIZED

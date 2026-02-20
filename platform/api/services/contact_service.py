@@ -93,7 +93,7 @@ class ContactService:
         offset = (page - 1) * limit
         
         query = db.client.table("contacts")\
-            .select("id, email, first_name, last_name, custom_fields, created_at", count="exact")\
+            .select("id, email, first_name, last_name, custom_fields, tags, status, created_at", count="exact")\
             .eq("tenant_id", tenant_id)
         
         if search:
@@ -279,3 +279,88 @@ class ContactService:
             .execute()
 
         return result.data or []
+
+    # ===== PHASE 2: TAGS, SUPPRESSION, AND EXPORT =====
+
+    @staticmethod
+    def update_tags(tenant_id: str, contact_id: str, tags: List[str]) -> Dict:
+        """Update the tags array for a specific contact."""
+        result = db.client.table("contacts")\
+            .update({"tags": tags})\
+            .eq("tenant_id", tenant_id)\
+            .eq("id", contact_id)\
+            .execute()
+        return result.data[0] if result.data else {}
+
+    @staticmethod
+    def get_suppression_list(tenant_id: str, page: int = 1, limit: int = 50) -> Dict:
+        """Get contacts mapped to bounced or unsubscribed status."""
+        offset = (page - 1) * limit
+        
+        result = db.client.table("contacts")\
+            .select("id, email, first_name, last_name, status, created_at", count="exact")\
+            .eq("tenant_id", tenant_id)\
+            .in_("status", ["bounced", "unsubscribed", "complained"])\
+            .order("created_at", desc=True)\
+            .range(offset, offset + limit - 1)\
+            .execute()
+            
+        total = result.count or 0
+        total_pages = (total + limit - 1) // limit if total else 0
+        
+        return {
+            "data": result.data,
+            "meta": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": total_pages
+            }
+        }
+
+    @staticmethod
+    def export_contacts(tenant_id: str) -> str:
+        """Fetch all contacts for export and return CSV format string."""
+        import csv
+        import io
+        
+        result = db.client.table("contacts")\
+            .select("email, first_name, last_name, status, custom_fields, tags, created_at")\
+            .eq("tenant_id", tenant_id)\
+            .execute()
+            
+        contacts = result.data or []
+        
+        # Determine all possible custom fields across all contacts
+        all_custom_keys = set()
+        for c in contacts:
+            if c.get("custom_fields"):
+                all_custom_keys.update(c["custom_fields"].keys())
+        
+        custom_keys = sorted(list(all_custom_keys))
+        
+        # Build headers
+        headers = ["Email", "First Name", "Last Name", "Status", "Tags", "Date Added"] + custom_keys
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        
+        for c in contacts:
+            row = [
+                c.get("email", ""),
+                c.get("first_name", ""),
+                c.get("last_name", ""),
+                c.get("status", ""),
+                ", ".join(c.get("tags") or []),
+                c.get("created_at", "")
+            ]
+            
+            # Append custom fields dynamically
+            c_custom = c.get("custom_fields") or {}
+            for key in custom_keys:
+                row.append(c_custom.get(key, ""))
+                
+            writer.writerow(row)
+            
+        return output.getvalue()

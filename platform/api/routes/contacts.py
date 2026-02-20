@@ -2,7 +2,7 @@
 Contacts API Routes
 Handles contact listing, stats, CSV/Excel upload, and lifecycle management.
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
 from typing import Optional, Dict, List
 from pydantic import BaseModel
 import pandas as pd
@@ -321,6 +321,66 @@ async def resolve_error(
         .execute()
 
     return {"status": "success", "remaining_errors": len(errors)}
+
+
+class UpdateTagsRequest(BaseModel):
+    tags: List[str]
+
+@router.get("/{contact_id}")
+async def get_contact(
+    contact_id: str,
+    tenant_id: str = Depends(require_active_tenant)
+):
+    """Get a single contact by ID"""
+    try:
+        result = db.client.table("contacts")\
+            .select("*")\
+            .eq("id", contact_id)\
+            .eq("tenant_id", tenant_id)\
+            .single()\
+            .execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        return result.data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch contact: {str(e)}")
+
+@router.post("/{contact_id}/tags")
+async def update_contact_tags(
+    contact_id: str,
+    body: UpdateTagsRequest,
+    tenant_id: str = Depends(require_active_tenant)
+):
+    """Update the tags array for a specific contact"""
+    try:
+        updated = ContactService.update_tags(tenant_id, contact_id, body.tags)
+        return {"status": "success", "contact": updated}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update tags: {str(e)}")
+
+@router.get("/suppression")
+async def get_suppressed_contacts(
+    page: int = 1,
+    limit: int = 50,
+    tenant_id: str = Depends(require_active_tenant)
+):
+    """List contacts that bounced, unsubscribed, or complained"""
+    return ContactService.get_suppression_list(tenant_id, page, limit)
+
+@router.get("/export")
+async def export_contacts(tenant_id: str = Depends(require_active_tenant)):
+    """Export all contacts for the tenant as a CSV file"""
+    try:
+        csv_data = ContactService.export_contacts(tenant_id)
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=contacts_export.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 @router.delete("/{contact_id}")
