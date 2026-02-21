@@ -20,37 +20,32 @@ export default function NewTemplatePage() {
     const { token, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
-    const [name, setName] = useState("");
-    const [subject, setSubject] = useState("");
-    const [category, setCategory] = useState("marketing");
-    const [selectedPresetId, setSelectedPresetId] = useState("blank");
+    const [selectedMode, setSelectedMode] = useState<"rich_text" | "grapesjs">("rich_text");
     const [creating, setCreating] = useState(false);
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !subject) return;
-
+    const handleCreate = async () => {
         setCreating(true);
-
-        // Find selected preset
-        const preset = TEMPLATE_PRESETS.find(p => p.id === selectedPresetId) || TEMPLATE_PRESETS[0];
 
         try {
             const res = await fetch(`${API_BASE}/templates`, {
                 method: "POST",
                 headers: apiHeaders(token!),
                 body: JSON.stringify({
-                    name,
-                    subject,
-                    category,
-                    mjml_json: preset.design || {}, // Unlayer design JSON if available
-                    compiled_html: preset.compiledHtml || "<div>Start designing your email...</div>"
+                    name: "Untitled Template",
+                    subject: "",
+                    category: "marketing",
+                    mjml_json: { editor: selectedMode },
+                    compiled_html: "<div><p><br></p></div>"
                 })
             });
 
             if (res.ok) {
                 const data = await res.json();
-                router.push(`/templates/${data.id}`);
+                if (selectedMode === "rich_text") {
+                    router.push(`/templates/${data.id}/editor`);
+                } else {
+                    router.push(`/templates/${data.id}/builder`);
+                }
             } else {
                 alert("Failed to create template");
             }
@@ -64,19 +59,20 @@ export default function NewTemplatePage() {
 
     // Styles
     const colors = {
-        primary: "#2563eb",
-        bg: "var(--bg-primary)",
-        text: "#1e293b",
-        textSecondary: "#64748b",
-        border: "#e2e8f0",
-        selected: "#eff6ff",
-        selectedBorder: "#2563eb"
+        primary: "#3B82F6",
+        bg: "#0A0A0B",
+        text: "#F3F4F6",
+        textSecondary: "#9CA3AF",
+        border: "#374151",
+        selected: "rgba(59, 130, 246, 0.1)",
+        selectedBorder: "#3B82F6",
+        cardBg: "#111113"
     };
 
     if (authLoading) return <div>Loading...</div>;
 
     return (
-        <div style={{ maxWidth: "1000px", margin: "40px auto", fontFamily: "Inter, sans-serif", padding: "0 20px" }}>
+        <div style={{ maxWidth: "800px", margin: "40px auto", fontFamily: "Inter, sans-serif", padding: "0 20px" }}>
             <button
                 onClick={() => router.back()}
                 style={{ display: "flex", alignItems: "center", gap: "4px", background: "none", border: "none", cursor: "pointer", color: colors.textSecondary, marginBottom: "24px" }}
@@ -84,111 +80,82 @@ export default function NewTemplatePage() {
                 <ChevronLeft size={16} /> Back
             </button>
 
-            <h1 style={{ fontSize: "24px", fontWeight: 600, marginBottom: "32px", color: colors.text }}>Create New Template</h1>
+            <div style={{ textAlign: "center", marginBottom: "40px" }}>
+                <h1 style={{ fontSize: "28px", fontWeight: 600, marginBottom: "8px", color: colors.text }}>Create New Template</h1>
+                <p style={{ color: colors.textSecondary, fontSize: "15px" }}>Choose how you want to build your email.</p>
+            </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px" }}>
-                {/* Left: Form */}
-                <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                    <div>
-                        <label style={{ display: "block", fontSize: "14px", fontWeight: 500, marginBottom: "8px", color: colors.text }}>
-                            Template Name
-                        </label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Monthly Newsletter"
-                            required
-                            style={{ width: "100%", padding: "10px", borderRadius: "6px", border: `1px solid ${colors.border}`, fontSize: "14px" }}
-                        />
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "32px", maxWidth: "600px", margin: "0 auto 32px auto" }}>
+                {/* Option 1: Basic Rich Text */}
+                <div
+                    onClick={() => setSelectedMode("rich_text")}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "20px",
+                        border: `2px solid ${selectedMode === "rich_text" ? colors.selectedBorder : colors.border}`,
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        padding: "24px",
+                        backgroundColor: selectedMode === "rich_text" ? colors.selected : colors.cardBg,
+                        transition: "all 0.2s"
+                    }}
+                >
+                    <div style={{ padding: "16px", backgroundColor: selectedMode === "rich_text" ? "rgba(59, 130, 246, 0.2)" : "#1F2937", borderRadius: "12px", color: selectedMode === "rich_text" ? colors.primary : colors.textSecondary }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 4v16" /></svg>
                     </div>
-
                     <div>
-                        <label style={{ display: "block", fontSize: "14px", fontWeight: 500, marginBottom: "8px", color: colors.text }}>
-                            Email Subject
-                        </label>
-                        <input
-                            type="text"
-                            value={subject}
-                            onChange={(e) => setSubject(e.target.value)}
-                            placeholder="e.g. Only for you {{first_name}}!"
-                            required
-                            style={{ width: "100%", padding: "10px", borderRadius: "6px", border: `1px solid ${colors.border}`, fontSize: "14px" }}
-                        />
-                        <p style={{ fontSize: "12px", color: colors.textSecondary, marginTop: "4px" }}>
-                            You can use merge tags like {"{{first_name}}"}, {"{{email}}"}
+                        <h3 style={{ fontSize: "17px", fontWeight: 600, margin: "0 0 6px 0", color: colors.text }}>
+                            Basic Email (Rich Text)
+                        </h3>
+                        <p style={{ fontSize: "14px", color: colors.textSecondary, margin: 0, lineHeight: "1.5" }}>
+                            A simple, continuous text editor. Great for plain-text style campaigns, announcements, or personal messages.
                         </p>
                     </div>
+                </div>
 
+                {/* Option 2: Visual Drag and Drop */}
+                <div
+                    onClick={() => setSelectedMode("grapesjs")}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "20px",
+                        border: `2px solid ${selectedMode === "grapesjs" ? colors.selectedBorder : colors.border}`,
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        padding: "24px",
+                        backgroundColor: selectedMode === "grapesjs" ? colors.selected : colors.cardBg,
+                        transition: "all 0.2s"
+                    }}
+                >
+                    <div style={{ padding: "16px", backgroundColor: selectedMode === "grapesjs" ? "rgba(59, 130, 246, 0.2)" : "#1F2937", borderRadius: "12px", color: selectedMode === "grapesjs" ? colors.primary : colors.textSecondary }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><rect x="7" y="7" width="3" height="9" /><rect x="14" y="7" width="3" height="5" /></svg>
+                    </div>
                     <div>
-                        <label style={{ display: "block", fontSize: "14px", fontWeight: 500, marginBottom: "8px", color: colors.text }}>
-                            Category
-                        </label>
-                        <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            style={{ width: "100%", padding: "10px", borderRadius: "6px", border: `1px solid ${colors.border}`, fontSize: "14px", backgroundColor: "white" }}
-                        >
-                            <option value="marketing">Marketing</option>
-                            <option value="transactional">Transactional</option>
-                            <option value="newsletter">Newsletter</option>
-                            <option value="education">Education</option>
-                        </select>
-                    </div>
-
-                    <div style={{ paddingTop: "16px" }}>
-                        <button
-                            type="submit"
-                            disabled={creating}
-                            style={{
-                                width: "100%", padding: "12px", backgroundColor: colors.primary, color: "white",
-                                border: "none", borderRadius: "6px", fontSize: "14px", fontWeight: 500,
-                                cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1
-                            }}
-                        >
-                            {creating ? "Creating..." : "Create Template"}
-                        </button>
-                    </div>
-                </form>
-
-                {/* Right: Presets */}
-                <div>
-                    <label style={{ display: "block", fontSize: "14px", fontWeight: 500, marginBottom: "16px", color: colors.text }}>
-                        Choose a Starting Point
-                    </label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                        {TEMPLATE_PRESETS.map(preset => (
-                            <div
-                                key={preset.id}
-                                onClick={() => setSelectedPresetId(preset.id)}
-                                style={{
-                                    border: `2px solid ${selectedPresetId === preset.id ? colors.selectedBorder : colors.border}`,
-                                    borderRadius: "8px",
-                                    cursor: "pointer",
-                                    overflow: "hidden",
-                                    backgroundColor: selectedPresetId === preset.id ? colors.selected : "white",
-                                    transition: "all 0.2s"
-                                }}
-                            >
-                                <div style={{ height: "100px", backgroundColor: "#f1f5f9", overflow: "hidden" }}>
-                                    <img
-                                        src={preset.thumbnail}
-                                        alt={preset.name}
-                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                    />
-                                </div>
-                                <div style={{ padding: "12px" }}>
-                                    <h3 style={{ fontSize: "14px", fontWeight: 600, margin: "0 0 4px 0", color: colors.text }}>
-                                        {preset.name}
-                                    </h3>
-                                    <p style={{ fontSize: "12px", color: colors.textSecondary, margin: 0, lineHeight: "1.4" }}>
-                                        {preset.description}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                        <h3 style={{ fontSize: "17px", fontWeight: 600, margin: "0 0 6px 0", color: colors.text }}>
+                            Drag & Drop Template
+                        </h3>
+                        <p style={{ fontSize: "14px", color: colors.textSecondary, margin: 0, lineHeight: "1.5" }}>
+                            Build complex, beautiful layouts visually with blocks, columns, and custom styling.
+                        </p>
                     </div>
                 </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "center" }}>
+                <button
+                    onClick={handleCreate}
+                    disabled={creating}
+                    style={{
+                        padding: "14px 32px", backgroundColor: colors.primary, color: "white",
+                        border: "none", borderRadius: "8px", fontSize: "15px", fontWeight: 500,
+                        cursor: creating ? "default" : "pointer", opacity: creating ? 0.7 : 1,
+                        width: "100%", maxWidth: "600px"
+                    }}
+                >
+                    {creating ? "Creating..." : "Continue to Editor"}
+                </button>
             </div>
         </div>
     );

@@ -355,6 +355,11 @@ Log format: `2026-02-13 12:00:00 [email_engine.contacts] INFO: [IMPORT_START] te
 - ✅ Status index for campaign filtering
 - ✅ Structured logging on all operations
 - ✅ `get_subscribable_contacts()` method ready for Phase 3
+- ✅ **Contact search endpoint** (search by email, name, tag)
+- ✅ **Tags CRUD API** (add/remove/list tags per contact) & UI integration
+- ✅ **Contact Detail Page** (view individual activity and properties)
+- ✅ **Export Contacts to CSV** functionality
+- ✅ **Suppression List Page** (view and manage bounced/spam contacts)
 
 ### Readiness for Phase 3 (Campaigns)
 
@@ -373,6 +378,7 @@ Log format: `2026-02-13 12:00:00 [email_engine.contacts] INFO: [IMPORT_START] te
 |--------|------|-------------|
 | `GET` | `/contacts/stats` | Usage stats (current/limit/percent) |
 | `GET` | `/contacts/` | Paginated list with search |
+| `GET` | `/contacts/export` | Export contacts to CSV |
 | `POST` | `/contacts/upload/preview` | Parse file, return headers + preview |
 | `POST` | `/contacts/upload/import` | Import with field mapping |
 | `POST` | `/contacts/bulk-delete` | Delete selected contacts |
@@ -380,7 +386,10 @@ Log format: `2026-02-13 12:00:00 [email_engine.contacts] INFO: [IMPORT_START] te
 | `GET` | `/contacts/batches` | List import history |
 | `DELETE` | `/contacts/batch/{id}` | Delete batch + contacts |
 | `POST` | `/contacts/resolve-error` | Fix and add failed contact |
+| `GET` | `/contacts/{id}` | Retrieve individual contact details |
 | `DELETE` | `/contacts/{id}` | Delete single contact |
+| `POST` | `/contacts/{id}/tags` | Add tag to contact |
+| `DELETE` | `/contacts/{id}/tags/{tag}` | Remove tag from contact |
 
 ---
 

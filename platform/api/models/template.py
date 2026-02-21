@@ -5,12 +5,13 @@ from uuid import UUID
 
 class TemplateBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    subject: str = Field(..., min_length=1, max_length=255)
+    subject: Optional[str] = Field(default="", max_length=255)
     category: Optional[str] = Field("marketing")
     mjml_json: Dict[str, Any] = Field(default_factory=dict)
     mjml_source: Optional[str] = Field(None)
     compiled_html: str = Field(...)
-
+    plain_text: Optional[str] = Field(None)
+    
     @field_validator('compiled_html')
     def validate_html_size(cls, v):
         # 500KB limit
@@ -30,6 +31,7 @@ class TemplateUpdate(BaseModel):
     mjml_json: Optional[Dict[str, Any]] = None
     mjml_source: Optional[str] = None
     compiled_html: Optional[str] = None
+    plain_text: Optional[str] = None
     
     @field_validator('compiled_html')
     def validate_html_size(cls, v):

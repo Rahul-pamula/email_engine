@@ -12,12 +12,13 @@
         "@radix-ui/react-dialog": "^1.0.5",
         "@radix-ui/react-slot": "^1.0.2",
         "@radix-ui/react-toast": "^1.1.5",
+        "@supabase/supabase-js": "^2.97.0",
         "autoprefixer": "^10.4.24",
         "axios": "^1.13.5",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "framer-motion": "^11.1.7",
-        "grapesjs": "^0.21.8",
+        "grapesjs": "^0.21.13",
         "grapesjs-mjml": "^1.0.7",
         "grapesjs-preset-newsletter": "^1.0.2",
         "lucide-react": "^0.378.0",
@@ -26,6 +27,7 @@
         "react": "^18",
         "react-dom": "^18",
         "react-email-editor": "^1.7.11",
+        "react-quill": "^2.0.0",
         "tailwind-merge": "^2.3.0"
     },
     "devDependencies": {

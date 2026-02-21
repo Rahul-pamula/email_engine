@@ -21,6 +21,7 @@ interface Template {
     category: string;
     updated_at: string;
     compiled_html: string;
+    mjml_json?: { editor?: string;[key: string]: any };
 }
 
 export default function TemplatesPage() {
@@ -88,7 +89,7 @@ export default function TemplatesPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                router.push(`/templates/${data.id}`);
+                router.push(`/templates/${data.id}/builder`);
             } else {
                 alert("Failed to create template from preset");
             }
@@ -100,8 +101,12 @@ export default function TemplatesPage() {
         }
     };
 
-    const handleEdit = (id: string) => {
-        router.push(`/templates/${id}`);
+    const handleEdit = (id: string, editorType?: string) => {
+        if (editorType === "rich_text") {
+            router.push(`/templates/${id}/editor`);
+        } else {
+            router.push(`/templates/${id}/builder`);
+        }
     };
 
     const handleDuplicate = async (e: React.MouseEvent, id: string) => {
@@ -143,13 +148,13 @@ export default function TemplatesPage() {
     const visiblePresets = showAllPresets ? TEMPLATE_PRESETS : TEMPLATE_PRESETS.slice(0, 6);
 
     return (
-        <div style={{ fontFamily: "Inter, sans-serif", color: "#1e293b" }}>
+        <div style={{ fontFamily: "Inter, sans-serif", color: "#E5E7EB", minHeight: "100vh", backgroundColor: "#0A0A0B" }}>
 
-            {/* ====== TEMPLATE GALLERY (like Google Docs) ====== */}
-            <div style={{ backgroundColor: "#FAFAFA", padding: "40px 0 32px", borderBottom: "1px solid #E5E7EB" }}>
+            {/* ====== TEMPLATE GALLERY ====== */}
+            <div style={{ backgroundColor: "#111113", padding: "40px 0 32px", borderBottom: "1px solid #1F2937" }}>
                 <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "0 48px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                        <h2 style={{ fontSize: "14px", fontWeight: 400, color: "#5F6368", margin: 0, letterSpacing: "0.2px" }}>
+                        <h2 style={{ fontSize: "14px", fontWeight: 500, color: "#9CA3AF", margin: 0, letterSpacing: "0.2px" }}>
                             Start a new email from a template
                         </h2>
                         {TEMPLATE_PRESETS.length > 6 && (
@@ -159,7 +164,7 @@ export default function TemplatesPage() {
                                     background: "none",
                                     border: "none",
                                     cursor: "pointer",
-                                    color: "#1967D2",
+                                    color: "#3B82F6",
                                     fontSize: "13px",
                                     display: "flex",
                                     alignItems: "center",
@@ -169,7 +174,7 @@ export default function TemplatesPage() {
                                     borderRadius: "4px",
                                     transition: "background-color 0.2s"
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F1F3F4"}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.1)"}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                             >
                                 {showAllPresets ? "Show less" : "Template gallery"}
@@ -197,21 +202,21 @@ export default function TemplatesPage() {
                                     style={{
                                         width: "100%",
                                         aspectRatio: "3/4",
-                                        borderRadius: "2px",
-                                        border: "1px solid #DADCE0",
+                                        borderRadius: "8px",
+                                        border: "1px solid #374151",
                                         overflow: "hidden",
-                                        backgroundColor: "white",
+                                        backgroundColor: "#1F2937",
                                         transition: "all 0.15s cubic-bezier(0.4,0.0,0.2,1)",
-                                        boxShadow: "0 1px 2px 0 rgba(60,64,67,0.1), 0 1px 3px 1px rgba(60,64,67,0.05)",
+                                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                                         position: "relative"
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = "#1967D2";
-                                        e.currentTarget.style.boxShadow = "0 1px 3px 0 rgba(60,64,67,0.15), 0 4px 8px 3px rgba(60,64,67,0.08)";
+                                        e.currentTarget.style.borderColor = "#3B82F6";
+                                        e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = "#DADCE0";
-                                        e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(60,64,67,0.1), 0 1px 3px 1px rgba(60,64,67,0.05)";
+                                        e.currentTarget.style.borderColor = "#374151";
+                                        e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
                                     }}
                                 >
                                     {/* Use PNG thumbnail if available, fallback to placeholder */}
@@ -235,19 +240,19 @@ export default function TemplatesPage() {
                                             alignItems: "center",
                                             justifyContent: "center",
                                             gap: "8px",
-                                            color: "#5F6368"
+                                            color: "#9CA3AF"
                                         }}>
                                             <Plus size={28} strokeWidth={1.5} />
-                                            <span style={{ fontSize: "11px", fontWeight: 500 }}>Blank</span>
+                                            <span style={{ fontSize: "12px", fontWeight: 500 }}>Blank Canvas</span>
                                         </div>
                                     )}
                                 </div>
                                 <div style={{ marginTop: "12px" }}>
                                     <p style={{
                                         fontSize: "14px",
-                                        fontWeight: 400,
+                                        fontWeight: 500,
                                         margin: "0 0 4px 0",
-                                        color: "#202124",
+                                        color: "#F3F4F6",
                                         lineHeight: "20px",
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
@@ -257,7 +262,7 @@ export default function TemplatesPage() {
                                     </p>
                                     <p style={{
                                         fontSize: "12px",
-                                        color: "#5F6368",
+                                        color: "#9CA3AF",
                                         margin: 0,
                                         textTransform: "capitalize",
                                         fontWeight: 400
@@ -271,12 +276,12 @@ export default function TemplatesPage() {
                 </div>
             </div>
 
-            {/* ====== MY TEMPLATES (saved ones) ====== */}
+            {/* ====== MY TEMPLATES ====== */}
             <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "40px 48px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
                     <div>
-                        <h1 style={{ fontSize: "16px", fontWeight: 400, marginBottom: "4px", color: "#202124" }}>Recent email templates</h1>
-                        <p style={{ color: "#5F6368", fontSize: "13px", margin: 0, fontWeight: 400 }}>
+                        <h1 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "4px", color: "#F9FAFB" }}>Recent email templates</h1>
+                        <p style={{ color: "#9CA3AF", fontSize: "14px", margin: 0, fontWeight: 400 }}>
                             Owned by anyone · {total} template{total !== 1 ? "s" : ""}
                         </p>
                     </div>
@@ -285,30 +290,30 @@ export default function TemplatesPage() {
                 {/* Search */}
                 {total > 0 && (
                     <div style={{ marginBottom: "24px", position: "relative", maxWidth: "420px" }}>
-                        <Search style={{ position: "absolute", left: "12px", top: "11px", color: "#5F6368", width: "16px", height: "16px" }} />
+                        <Search style={{ position: "absolute", left: "14px", top: "12px", color: "#9CA3AF", width: "16px", height: "16px" }} />
                         <input
                             type="text"
                             placeholder="Search"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             style={{
-                                padding: "10px 12px 10px 40px",
+                                padding: "10px 14px 10px 40px",
                                 width: "100%",
                                 borderRadius: "8px",
-                                border: "1px solid #DADCE0",
+                                border: "1px solid #374151",
                                 fontSize: "14px",
                                 outline: "none",
-                                backgroundColor: "#F1F3F4",
-                                color: "#202124",
+                                backgroundColor: "#111113",
+                                color: "#F3F4F6",
                                 transition: "background-color 0.2s, border-color 0.2s"
                             }}
                             onFocus={(e) => {
-                                e.currentTarget.style.backgroundColor = "white";
-                                e.currentTarget.style.borderColor = "#1A73E8";
+                                e.currentTarget.style.backgroundColor = "#1F2937";
+                                e.currentTarget.style.borderColor = "#3B82F6";
                             }}
                             onBlur={(e) => {
-                                e.currentTarget.style.backgroundColor = "#F1F3F4";
-                                e.currentTarget.style.borderColor = "#DADCE0";
+                                e.currentTarget.style.backgroundColor = "#111113";
+                                e.currentTarget.style.borderColor = "#374151";
                             }}
                         />
                     </div>
@@ -316,12 +321,12 @@ export default function TemplatesPage() {
 
                 {/* Template Grid */}
                 {loading ? (
-                    <div style={{ padding: "60px", textAlign: "center", color: "#5F6368", fontSize: "14px" }}>Loading templates...</div>
+                    <div style={{ padding: "60px", textAlign: "center", color: "#9CA3AF", fontSize: "14px" }}>Loading templates...</div>
                 ) : filtered.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "60px 24px", backgroundColor: "#FAFAFA", borderRadius: "8px", border: "1px solid #E5E7EB" }}>
-                        <FileText style={{ width: "48px", height: "48px", color: "#DADCE0", marginBottom: "16px", strokeWidth: 1.5 }} />
-                        <h3 style={{ fontSize: "16px", fontWeight: 400, margin: "0 0 8px 0", color: "#202124" }}>No templates yet</h3>
-                        <p style={{ color: "#5F6368", fontSize: "13px", margin: 0, maxWidth: "400px", marginLeft: "auto", marginRight: "auto" }}>
+                    <div style={{ textAlign: "center", padding: "80px 24px", backgroundColor: "#111113", borderRadius: "12px", border: "1px dashed #374151" }}>
+                        <FileText style={{ width: "48px", height: "48px", color: "#4B5563", marginBottom: "16px", strokeWidth: 1.5, marginLeft: "auto", marginRight: "auto" }} />
+                        <h3 style={{ fontSize: "16px", fontWeight: 500, margin: "0 0 8px 0", color: "#F3F4F6" }}>No templates yet</h3>
+                        <p style={{ color: "#9CA3AF", fontSize: "14px", margin: 0, maxWidth: "400px", marginLeft: "auto", marginRight: "auto" }}>
                             Choose a template above to get started, or create one from scratch.
                         </p>
                     </div>
@@ -334,27 +339,27 @@ export default function TemplatesPage() {
                             return (
                                 <div
                                     key={template.id}
-                                    onClick={() => handleEdit(template.id)}
+                                    onClick={() => handleEdit(template.id, template.mjml_json?.editor)}
                                     style={{
-                                        border: "1px solid #DADCE0",
+                                        border: "1px solid #374151",
                                         borderRadius: "8px",
                                         overflow: "hidden",
                                         cursor: "pointer",
                                         transition: "all 0.15s cubic-bezier(0.4,0.0,0.2,1)",
-                                        backgroundColor: "white",
-                                        boxShadow: "0 1px 2px 0 rgba(60,64,67,0.1), 0 1px 3px 1px rgba(60,64,67,0.05)"
+                                        backgroundColor: "#1F2937",
+                                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.boxShadow = "0 1px 3px 0 rgba(60,64,67,0.15), 0 4px 8px 3px rgba(60,64,67,0.08)";
-                                        e.currentTarget.style.borderColor = "#1A73E8";
+                                        e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
+                                        e.currentTarget.style.borderColor = "#3B82F6";
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(60,64,67,0.1), 0 1px 3px 1px rgba(60,64,67,0.05)";
-                                        e.currentTarget.style.borderColor = "#DADCE0";
+                                        e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+                                        e.currentTarget.style.borderColor = "#374151";
                                     }}
                                 >
                                     {/* Preview */}
-                                    <div style={{ height: "140px", backgroundColor: "#FAFAFA", borderBottom: "1px solid #E5E7EB", position: "relative", overflow: "hidden" }}>
+                                    <div style={{ height: "140px", backgroundColor: "#111113", borderBottom: "1px solid #374151", position: "relative", overflow: "hidden" }}>
                                         {hasRealHtml ? (
                                             <iframe
                                                 srcDoc={template.compiled_html}
@@ -370,7 +375,7 @@ export default function TemplatesPage() {
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 gap: "6px",
-                                                color: "#9CA3AF"
+                                                color: "#6B7280"
                                             }}>
                                                 <FileText size={24} strokeWidth={1.5} />
                                                 <span style={{ fontSize: "11px" }}>No preview</span>
@@ -379,47 +384,47 @@ export default function TemplatesPage() {
                                     </div>
 
                                     {/* Info */}
-                                    <div style={{ padding: "12px 16px" }}>
+                                    <div style={{ padding: "16px" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
                                             <h3 style={{
-                                                fontSize: "14px",
-                                                fontWeight: 400,
+                                                fontSize: "15px",
+                                                fontWeight: 500,
                                                 margin: 0,
                                                 whiteSpace: "nowrap",
                                                 overflow: "hidden",
                                                 textOverflow: "ellipsis",
                                                 maxWidth: "160px",
-                                                color: "#202124"
+                                                color: "#F3F4F6"
                                             }}>
                                                 {template.name}
                                             </h3>
                                             <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
                                                 <button
                                                     onClick={(e) => handleDuplicate(e, template.id)}
-                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#5F6368", padding: "4px", borderRadius: "4px", display: "flex", transition: "background-color 0.2s" }}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", transition: "background-color 0.2s" }}
                                                     title="Duplicate"
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F1F3F4"}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#374151"}
                                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                                                 >
                                                     <Copy size={14} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => handleDelete(e, template.id)}
-                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#EA4335", padding: "4px", borderRadius: "4px", display: "flex", transition: "background-color 0.2s" }}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#F87171", padding: "4px", borderRadius: "4px", display: "flex", transition: "background-color 0.2s" }}
                                                     title="Delete"
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#FCE8E6"}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(248, 113, 113, 0.1)"}
                                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                                                 >
                                                     <Trash2 size={14} />
                                                 </button>
                                             </div>
                                         </div>
-                                        <p style={{ fontSize: "12px", color: "#5F6368", margin: "0 0 8px 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        <p style={{ fontSize: "13px", color: "#9CA3AF", margin: "0 0 12px 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                             {template.subject}
                                         </p>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#5F6368" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "#9CA3AF" }}>
                                             <span>{new Date(template.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                                            <span style={{ backgroundColor: "#F1F3F4", padding: "2px 8px", borderRadius: "12px", fontSize: "11px", textTransform: "capitalize" }}>
+                                            <span style={{ backgroundColor: "#374151", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 500, textTransform: "capitalize", color: "#E5E7EB" }}>
                                                 {template.category}
                                             </span>
                                         </div>

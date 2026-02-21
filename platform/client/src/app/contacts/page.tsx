@@ -64,7 +64,8 @@ function ErrorRow({ err, idx, batchId, token, colors, onResolved }: {
 
     const inputStyle = {
         padding: "4px 8px", fontSize: "12px", border: `1px solid ${colors.border}`,
-        borderRadius: "4px", width: "100%", boxSizing: "border-box" as const
+        borderRadius: "4px", width: "100%", boxSizing: "border-box" as const,
+        backgroundColor: "var(--bg-primary)", color: "var(--text-primary)"
     };
 
     const handleResolve = async () => {
@@ -540,7 +541,9 @@ export default function ContactsPage() {
                                 border: `1px solid ${colors.border}`,
                                 borderRadius: "6px",
                                 outline: "none",
-                                boxSizing: "border-box"
+                                boxSizing: "border-box",
+                                backgroundColor: "var(--bg-card)",
+                                color: "var(--text-primary)"
                             }}
                         />
                     </div>
@@ -922,7 +925,7 @@ export default function ContactsPage() {
                                                             style={{
                                                                 width: "100%", padding: "5px 8px", fontSize: "12px",
                                                                 border: `1px solid ${colors.border}`, borderRadius: "4px",
-                                                                backgroundColor: "var(--bg-card)"
+                                                                backgroundColor: "var(--bg-card)", color: "var(--text-primary)"
                                                             }}
                                                         />
                                                         <p style={{ margin: "2px 0 0", fontSize: "11px", color: colors.textSecondary }}>
@@ -1076,7 +1079,8 @@ export default function ContactsPage() {
                             style={{
                                 width: "100%", padding: "8px 12px", fontSize: "14px",
                                 border: `1px solid ${colors.dangerBorder}`, borderRadius: "6px",
-                                marginBottom: "16px", boxSizing: "border-box"
+                                marginBottom: "16px", boxSizing: "border-box",
+                                backgroundColor: "var(--bg-card)", color: "var(--text-primary)"
                             }}
                         />
                         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>

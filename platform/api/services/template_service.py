@@ -37,6 +37,7 @@ class TemplateService:
             "mjml_json": template.mjml_json,
             "mjml_source": mjml_source,
             "compiled_html": compiled_html, # No sanitization in stabilization
+            "plain_text": template.plain_text,
             "version": 1
         }).execute()
         
@@ -101,6 +102,8 @@ class TemplateService:
             update_data["mjml_source"] = template.mjml_source
         if template.compiled_html is not None:
             update_data["compiled_html"] = template.compiled_html # No sanitization
+        if template.plain_text is not None:
+            update_data["plain_text"] = template.plain_text
             
         if not update_data:
             return existing

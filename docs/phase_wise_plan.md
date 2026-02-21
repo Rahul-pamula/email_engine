@@ -211,14 +211,12 @@ Each phase has TWO parts:
   [FRONTEND]
   ✔ Templates list page (grid of template cards with thumbnails)
   ✔ Create template (pick preset)
-  ☐ Simple HTML Template Editor (text area for code + live preview)
-      → Launch this first to unblock campaigns faster.
-      → Tabs: HTML | Plain Text (Auto-generated) | Plain Text (Custom)
+  ☐ Advanced Template Editor — GrapesJS builder (drag & drop)
+      → Store raw HTML directly in the DB.
+      → Use grapesjs-preset-newsletter for Outlook-safe table layouts.
+      → Intercept image uploads and save to Supabase Storage bucket.
+  ☐ Plain Text (Auto-generated) | Plain Text (Custom) tabs
       → Lets users override generated plain text if formatting breaks.
-  ☐ Preview panel with 3 toggles:
-      → 📱 Mobile view
-      → 💻 Desktop view
-      → 🌙 Dark mode view (critical: logos/colors often break in dark mode)
   ☐ Send test email button (enter email address → receive real email)
   ☐ Duplicate template button
   ☐ Category filter tabs on template list
@@ -253,12 +251,9 @@ Each phase has TWO parts:
       → Audience has > 0 contacts ✅/❌
       → Bounce rate is acceptable ✅/❌
   ☐ Schedule picker (date/time input for scheduled send)
+  ☐ Schedule picker (date/time input for scheduled send)
   ☐ Pause button / Cancel button on in-progress campaign
   ☐ Send test email modal (enter email address, preview)
-  ☐ Advanced Template Editor — GrapesJS rebuild (drag & drop)
-      → Upgrade from Phase 3's simple HTML editor.
-      → No MJML. Store HTML directly.
-      → Use GrapesJS email preset for Outlook-safe table layout.
 
 ─────────────────────────────────────────
 🏗 PHASE 5 — Delivery Engine ✅ DONE
