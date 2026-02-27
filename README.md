@@ -120,12 +120,24 @@ cp .env.example .env
 ```bash
 # Backend
 cd platform/api
+# Create a virtual environment named .venv
+python -m venv .venv
+
+# Activate it (on Mac/Linux)
+source .venv/bin/activate
+
+# Activate it (on Windows)
+.venv\Scripts\activate
+
 pip install -r requirements.txt
 
+# Make sure your virtual environment is activated if you used one
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
 # Frontend
-cd ../client
+cd email_engine/platform/client
 npm install
-```
+npm run dev
 
 ### 3. Start everything
 ```bash
