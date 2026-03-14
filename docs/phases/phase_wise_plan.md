@@ -132,22 +132,68 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   - Correct summary: the design-system foundation exists, but standardization work remains
 
 ─────────────────────────────────────────
-�🏗 PHASE 1 — Foundation ✅ DONE
+🏗 PHASE 1 — Foundation, Auth, Tenant Identity, and Onboarding
+  WHY: This phase turns the app into a tenant-aware SaaS product.
+       It establishes user identity, tenant identity, onboarding, route guards,
+       and frontend session behavior.
+
+  VERIFIED STATUS:
+  - Foundation is mostly complete.
+  - The implementation is custom JWT auth, not Supabase Auth.
+  - Tenant isolation is primarily enforced in the application layer, not active RLS.
+  - Onboarding and route protection work, but the architecture still has cleanup items.
+
+  [ARCHITECTURE]
+  - Auth routes: `platform/api/routes/auth.py`
+  - Onboarding routes: `platform/api/routes/onboarding.py`
+  - Password reset + verification routes: `platform/api/routes/password_reset.py`
+  - JWT middleware: `platform/api/utils/jwt_middleware.py`
+  - Frontend auth state: `platform/client/src/context/AuthContext.tsx`
+  - Frontend request-time redirects: `platform/client/src/middleware.ts`
+  - Onboarding UI: `platform/client/src/app/onboarding/*`
+
   [BACKEND]
-  - [x] Auth (Supabase Auth)
-  - [x] Multi-tenant isolation (RLS)
-  - [x] Onboarding flow
-  - [x] JWT middleware
+  - [x] Custom email/password auth
+      → `bcrypt` hashing + custom JWTs
+  - [x] Tenant membership model
+      → `users`, `tenants`, `tenant_users`
+  - [x] Onboarding flow exists
+      → new 4-step flow plus legacy progressive onboarding endpoints
+  - [x] JWT middleware exists
+      → tenant_id, role, email, user_id verification
+  - [x] Active-tenant guard exists
+  - [x] Workspace switching exists
+  - [ ] Supabase Auth is the active auth system
+  - [ ] RLS is the active tenant-isolation layer
+  - [ ] `/auth/me` is fully implemented
+  - [ ] All onboarding endpoints use JWT-only tenant resolution consistently
 
   [FRONTEND]
   - [x] Login page
   - [x] Signup page
-  - [x] Onboarding wizard (org name, country, address)
-  - [x] Interactive Onboarding Dashboard (Tracks setup progress: Account, Domain, Sender, Contacts, Campaigns)
-  - [x] Sidebar navigation layout
+  - [x] Onboarding wizard exists
+      → `workspace`, `use-case`, `integrations`, `scale`, `complete`
+  - [x] Interactive onboarding checklist exists on dashboard
+  - [x] Sidebar navigation layout exists
+  - [x] Auth context exists
+  - [x] Middleware redirects exist
+  - [ ] Route protection is fully centralized and consistent
 
-  NOTE: Forgot password page is broken (currently unlinked/disabled).
-        Fix in Phase 1.5 using Supabase Auth flows.
+  [SECURITY MODEL]
+  - [x] JWT carries tenant identity
+  - [x] `X-Tenant-ID` is validated against JWT when used
+  - [x] onboarding tenants are blocked from active-tenant routes
+  - [ ] database-level RLS is the active protection mechanism
+
+  [PHASE 1 DONE MEANS]
+  - auth architecture is accurately documented
+  - tenant identity is enforced consistently
+  - onboarding state is coherent
+  - route protection is aligned between backend, frontend context, and middleware
+
+  NOTE:
+  - Correct status: Mostly complete
+  - Correct summary: the foundation is real, but the docs previously overstated Supabase Auth and RLS
 
 ─────────────────────────────────────────
 🏗 PHASE 1.5 — Auth Cleanup

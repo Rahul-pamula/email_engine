@@ -67,6 +67,35 @@
             ]
         };
 
+        phasesData[1] = {
+            title: "PHASE 1 — Foundation, Auth, Tenant Identity, and Onboarding (Verified Audit)",
+            tasks: [
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Custom email/password authentication exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Passwords are hashed with <code>bcrypt</code>", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> JWT creation and verification exist", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Tenant membership model exists through <code>users</code>, <code>tenants</code>, and <code>tenant_users</code>", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Onboarding routes exist", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Active-tenant guard exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Workspace switching exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> Supabase Auth is the active authentication system", done: false },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> RLS is the active tenant-isolation layer", done: false },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> <code>/auth/me</code> is fully implemented", done: false },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[BACKEND]</span> All onboarding endpoints use JWT-only tenant resolution consistently", done: false },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Login page exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Signup page exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Onboarding wizard exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Dashboard onboarding checklist exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Sidebar navigation layout exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Auth context exists", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Middleware redirects exist", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[FRONTEND]</span> Route protection is fully centralized and consistent", done: false },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[SECURITY MODEL]</span> JWT carries tenant identity", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[SECURITY MODEL]</span> <code>X-Tenant-ID</code> is validated against JWT when used", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[SECURITY MODEL]</span> Onboarding tenants are blocked from active-tenant routes", done: true },
+                { text: "<span class='text-xs font-bold text-indigo-400 mr-2 uppercase block sm:inline'>[SECURITY MODEL]</span> Database-level RLS is the active protection mechanism", done: false }
+            ]
+        };
+
         // Load overrides from localStorage
         const savedState = JSON.parse(localStorage.getItem('shrmail_phases_tracker') || '{}');
         let totalTasks = 0;

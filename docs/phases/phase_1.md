@@ -1,341 +1,383 @@
-# Phase 1 — Foundation & Authentication
+# Phase 1 - Foundation, Authentication, Tenant Identity, and Onboarding
 
-> **Verification Status: ✅ VERIFIED**
-> **Last Verified:** February 19, 2026
->
-> | Component | Status | Verification Method |
-> |-----------|--------|---------------------|
-> | **Authentication** | ✅ | Verified `auth.py` (Signup/Login logic) and `jwt_middleware.py` (Token validation) |
-> | **Multi-tenancy** | ✅ | Verified `schema.sql` (RLS Policies) and `jwt_middleware.py` (`tenant_id` enforcement) |
-> | **Onboarding** | ✅ | Verified `onboarding.py` (Endpoints for Workspace, Use Case, Integrations, Scale) |
-> | **Database Schema** | ✅ | Verified `schema.sql` tables (`users`, `tenants`, `tenant_users`) |
-
+> Status: Mostly complete, with important architecture caveats  
+> Verified against code: 2026-03-14  
+> Scope: auth routes, JWT middleware, onboarding routes, frontend auth state, onboarding UI, and route guards
 
 ---
 
-## Overview
+## Purpose
 
-Phase 1 establishes the **multi-tenant SaaS foundation** for the Email Marketing platform. It implements user registration, authentication, tenant provisioning, and a guided onboarding flow. Every subsequent phase (Contacts, Campaigns, Analytics) depends on this layer for identity, isolation, and access control.
+Phase 1 establishes the application foundation that every later feature depends on:
 
-**Tech Stack:** FastAPI (Python) · Supabase (PostgreSQL) · Next.js (React) · JWT (HS256) · bcrypt
+- user identity
+- tenant identity
+- login and signup flows
+- onboarding state
+- route protection
+- workspace-aware frontend session state
 
----
-
-## Authentication System
-
-### Signup Flow
-
-```
-User submits email + password + full_name
-         │
-         ▼
-  Validate email uniqueness (users table)
-         │
-         ▼
-  Hash password with bcrypt
-         │
-         ▼
-  Create user record (UUID generated)
-         │
-         ▼
-  Create tenant record (status = 'onboarding')
-         │
-         ▼
-  Link user → tenant via tenant_users (role = 'owner')
-         │
-         ▼
-  Create onboarding_progress record
-         │
-         ▼
-  Generate JWT token (user_id, tenant_id, email, role)
-         │
-         ▼
-  Return token + onboarding_required = true
-```
-
-**Endpoint:** `POST /auth/signup`
-
-| Field | Validation |
-|-------|-----------|
-| `email` | Pydantic EmailStr, unique check |
-| `password` | min 8, max 100 characters |
-| `full_name` | min 1, max 200 characters |
-
-**Rollback:** If any step fails, created records are cleaned up (user, tenant, tenant_users).
-
-### Login Flow
-
-```
-User submits email + password
-         │
-         ▼
-  Look up user by email
-         │
-         ▼
-  Verify password against bcrypt hash
-         │
-         ▼
-  Check user is_active flag
-         │
-         ▼
-  Get primary tenant (first by joined_at)
-         │
-         ▼
-  Get tenant status ('onboarding' or 'active')
-         │
-         ▼
-  Generate JWT token
-         │
-         ▼
-  Return token + tenant_status + onboarding_required
-```
-
-**Endpoint:** `POST /auth/login`
-
-### JWT Token
-
-| Field | Source |
-|-------|--------|
-| `user_id` | Generated UUID |
-| `tenant_id` | Linked tenant UUID |
-| `email` | User email |
-| `role` | From tenant_users (owner/admin/member) |
-| `exp` | 7-day expiry |
-
-**Signing:** HS256 with `JWT_SECRET_KEY` environment variable.
-
-### Password Hashing
-
-Uses `passlib` with bcrypt scheme. Passwords are never stored in plaintext.
-
-```python
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-```
+This phase is the line between a static frontend and a tenant-aware SaaS product.
 
 ---
 
-## Multi-Tenant Architecture
+## Verified Architecture
 
-### Database Schema
+Phase 1 is implemented with a custom authentication and tenant foundation. It is not using Supabase Auth as the primary auth engine.
 
-```
-┌──────────────┐      ┌──────────────────┐      ┌──────────────┐
-│    users     │      │   tenant_users   │      │   tenants    │
-├──────────────┤      ├──────────────────┤      ├──────────────┤
-│ id (PK)      │◄─────│ user_id (FK)     │      │ id (PK)      │
-│ email        │      │ tenant_id (FK)   │─────►│ email        │
-│ password_hash│      │ role             │      │ status       │
-│ full_name    │      │ joined_at        │      │ org_name     │
-│ is_active    │      └──────────────────┘      │ max_contacts │
-│ last_login_at│                                │ workspace_name│
-│ created_at   │                                │ created_at   │
-└──────────────┘                                └──────────────┘
-```
+### Core stack in use
 
-### Role Assignment
+- FastAPI
+- PostgreSQL through Supabase
+- Supabase Python client with `SERVICE_ROLE_KEY`
+- custom `bcrypt` password hashing
+- custom JWTs signed with `HS256`
+- Next.js frontend auth context
+- cookie plus localStorage session persistence
 
-| Event | Role Assigned |
-|-------|--------------|
-| User signs up | `owner` (automatic) |
-| Invited to workspace | `admin` or `member` (future) |
+### Main backend files
 
-### Tenant Lifecycle
+- `platform/api/routes/auth.py`
+- `platform/api/routes/onboarding.py`
+- `platform/api/routes/password_reset.py`
+- `platform/api/utils/jwt_middleware.py`
+- `platform/api/utils/supabase_client.py`
+- `platform/database/migrations/002_progressive_onboarding.sql`
+- `migrations/add_onboarding_fields.sql`
 
-```
-  Created on signup → status = 'onboarding'
-         │
-         ▼ (user completes onboarding)
-         │
-  Activated → status = 'active'
-```
+### Main frontend files
 
-Only `active` tenants can access protected features (contacts, campaigns).
+- `platform/client/src/context/AuthContext.tsx`
+- `platform/client/src/middleware.ts`
+- `platform/client/src/app/login/page.tsx`
+- `platform/client/src/app/signup/page.tsx`
+- `platform/client/src/app/onboarding/*`
+- `platform/client/src/app/dashboard/page.tsx`
 
 ---
 
-## Onboarding Flow
+## Real Phase 1 Flow
 
-The onboarding is a multi-step wizard flow:
+### Account creation flow
 
-### Step 1 — Workspace Setup
-**Endpoint:** `POST /onboarding/workspace`
+The current signup flow is:
 
-| Field | Type |
-|-------|------|
-| `workspace_name` | string |
-| `user_role` | string |
+1. user submits email, password, full name, and optionally tenant name
+2. backend checks `users.email` uniqueness
+3. password is hashed with `bcrypt`
+4. user row is created in `users`
+5. one of three tenant paths is selected:
+   - invited flow: placeholder tenant context, status `pending_join`
+   - JIT enterprise domain flow: create `join_requests` entry for verified enterprise domain
+   - normal owner flow: create tenant with status `onboarding`
+6. owner users are linked through `tenant_users`
+7. onboarding tracker row is created for normal owner flow
+8. JWT is issued with `user_id`, `tenant_id`, `email`, `role`
+9. email verification token is generated and verification email is sent
 
-### Step 2 — Primary Use Case
-**Endpoint:** `POST /onboarding/use-case`
+### Login flow
 
-| Field | Type |
-|-------|------|
-| `primary_use_case` | string |
+The current login flow is:
 
-### Step 3 — Integrations
-**Endpoint:** `POST /onboarding/integrations`
+1. user lookup by email
+2. password verification with `bcrypt`
+3. `is_active` check
+4. primary tenant selection from `tenant_users` ordered by `joined_at`
+5. if no tenant membership exists, fallback to `join_requests` or `team_invitations`
+6. tenant status lookup
+7. JWT issuance
+8. tenant status returned to frontend
 
-| Field | Type |
-|-------|------|
-| `integration_sources` | string[] |
+### Frontend session flow
 
-### Step 4 — Expected Scale
-**Endpoint:** `POST /onboarding/scale`
+The frontend stores session state in:
 
-| Field | Type |
-|-------|------|
-| `expected_scale` | string |
+- `localStorage` for `auth_token` and `user_data`
+- cookies for `auth_token` and `tenant_status`
 
-### Step 5 — Complete
-**Endpoint:** `POST /onboarding/complete`
+This allows:
 
-**Actions:**
-- Sets `tenants.status = 'active'`
-- Records `onboarding_completed_at` timestamp
-- Updates legacy `onboarding_progress` table
+- React auth state on the client
+- Next.js middleware redirects based on cookies
+- onboarding and waiting-room redirects after login
 
-After completion, the user is redirected to the dashboard and can access all features.
+### Onboarding flow
 
-### Legacy Onboarding Stages
+The active onboarding UI is a 4-step wizard:
 
-The original 3-stage flow (basic_info, compliance, intent) is preserved:
+1. workspace
+2. use case
+3. integrations
+4. scale
+5. completion screen triggers tenant activation
 
-| Stage | Endpoint | Required? |
-|-------|----------|-----------|
-| Basic Info | `PUT /onboarding/basic-info` | ✅ Yes |
-| Compliance | `PUT /onboarding/compliance` | ✅ Yes |
-| Intent | `PUT /onboarding/intent` | Optional |
+There is also legacy onboarding support still present in the backend:
 
-**Status Endpoint:** `GET /onboarding/status` — returns completed stages, next stage, and progress.
+- `basic-info`
+- `compliance`
+- `intent`
+- `status`
 
----
+This means Phase 1 currently contains both:
 
-## Access Control
-
-### Route Protection Levels
-
-| Level | Dependency | Use Case | Tenant Status |
-|-------|-----------|----------|---------------|
-| **Public** | None | `/auth/signup`, `/auth/login`, `/health` | Any |
-| **Authenticated** | `require_authenticated_user` | `/onboarding/*` | Any |
-| **Active Tenant** | `require_active_tenant` | `/contacts/*`, `/campaigns/*` | `active` only |
-
-### require_active_tenant (Primary Guard)
-
-```
-Request arrives with Authorization: Bearer <token>
-         │
-         ▼
-  Decode JWT, extract user_id + tenant_id + email + role
-         │
-         ▼
-  Validate X-Tenant-ID header matches JWT (anti-spoofing)
-         │
-         ▼
-  Query tenants table for status
-         │
-         ▼
-  If status ≠ 'active' → HTTP 403 Forbidden
-         │
-         ▼
-  Return tenant_id for use in route handler
-```
-
-### Anti-Spoofing Protection
-
-If a client sends `X-Tenant-ID` header, it **must match** the `tenant_id` in the JWT. Mismatches return HTTP 400. This prevents:
-- Debug confusion when wrong headers are sent
-- Intentional spoofing via header manipulation
+- a newer 4-step product onboarding flow
+- an older progressive onboarding API model kept for compatibility
 
 ---
 
-## Security Design
+## Implemented Foundation Areas
 
-### Tenant Isolation Guarantees
+### 1. Authentication is implemented
 
-| Layer | Mechanism | Detail |
-|-------|-----------|--------|
-| **Identity** | JWT signed with HS256 | `tenant_id` embedded in token, cannot be forged |
-| **API Layer** | Dependency injection | Every protected route gets `tenant_id` from JWT |
-| **Query Layer** | Application filtering | Every query includes `.eq("tenant_id", tenant_id)` |
-| **Database** | RLS policies | PostgreSQL row-level security as last defense |
-| **Header** | Anti-spoofing check | `X-Tenant-ID` must match JWT if present |
+Implemented:
 
-### Key Security Properties
+- email and password signup
+- email and password login
+- `bcrypt` password hashing
+- JWT creation and verification
+- OAuth entry points for Google and GitHub
+- email verification token generation
+- password reset routes exist
+- workspace switching for multi-tenant users
 
-1. **tenant_id NEVER comes from user input** — always extracted from JWT
-2. **Passwords hashed with bcrypt** — industry standard, salted automatically
-3. **JWT expires in 7 days** — configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`
-4. **Service role key** used for backend DB access (bypasses RLS, requires app-level isolation)
-5. **Email uniqueness** enforced at signup
+Important clarification:
 
----
+This is custom auth built on the project database. It is not Supabase Auth in the way the old docs describe it.
 
-## Architecture Diagram
+### 2. Tenant identity is implemented
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (Next.js)                    │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │  Auth Pages    │  │  Onboarding  │  │  Dashboard  │ │
-│  │  (Login/Signup)│  │  (4 Steps)   │  │  (Active)   │ │
-│  └───────┬────────┘  └──────┬───────┘  └──────┬──────┘ │
-└──────────┼──────────────────┼─────────────────┼────────┘
-           │ JWT              │ JWT              │ JWT
-           ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────┐
-│                    FASTAPI (Backend)                     │
-│  ┌──────────────┐  ┌────────────────┐  ┌─────────────┐ │
-│  │ /auth/*      │  │ /onboarding/*  │  │ /contacts/* │ │
-│  │ Public       │  │ Authenticated  │  │ Active Only │ │
-│  └──────┬───────┘  └───────┬────────┘  └──────┬──────┘ │
-│         │                  │                   │        │
-│         ▼                  ▼                   ▼        │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │         JWT Middleware (tenant extraction)       │    │
-│  └─────────────────────┬───────────────────────────┘    │
-└────────────────────────┼────────────────────────────────┘
-                         │ Service Role Key
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│              SUPABASE (PostgreSQL)                       │
-│  ┌────────┐  ┌──────────┐  ┌──────────────┐            │
-│  │ users  │  │ tenants  │  │ tenant_users │            │
-│  └────────┘  └──────────┘  └──────────────┘            │
-│  ┌──────────────────────┐  ┌──────────────┐            │
-│  │ onboarding_progress  │  │  contacts    │            │
-│  └──────────────────────┘  └──────────────┘            │
-│                     RLS Enabled                         │
-└─────────────────────────────────────────────────────────┘
-```
+Implemented:
+
+- `users` table
+- `tenants` table
+- `tenant_users` junction table
+- `onboarding_progress` table
+- tenant-aware JWT payload
+- role capture through `tenant_users.role`
+- primary-tenant selection at login
+- pending-join state for enterprise JIT and invitations
+
+### 3. Onboarding foundation is implemented
+
+Implemented:
+
+- backend onboarding write endpoints
+- tenant status progression from `onboarding` to `active`
+- frontend onboarding wizard screens
+- frontend completion screen activating tenant
+- dashboard onboarding checklist experience
+
+### 4. Frontend route protection is implemented
+
+Implemented:
+
+- auth context redirects
+- middleware redirects for protected routes
+- onboarding redirect handling
+- waiting-room redirect handling
+- auth-page redirect-away handling for authenticated users
 
 ---
 
-## API Endpoints Summary
+## Design And Security Model
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/auth/signup` | Public | Register user + create tenant |
-| `POST` | `/auth/login` | Public | Authenticate, get JWT |
-| `GET` | `/auth/me` | JWT | Get current user (placeholder) |
-| `GET` | `/onboarding/status` | Header | Get onboarding progress |
-| `PUT` | `/onboarding/basic-info` | JWT | Save org name, country |
-| `PUT` | `/onboarding/compliance` | JWT | Save business address |
-| `PUT` | `/onboarding/intent` | Header | Save business context |
-| `POST` | `/onboarding/workspace` | JWT | Step 1: workspace setup |
-| `POST` | `/onboarding/use-case` | JWT | Step 2: use case |
-| `POST` | `/onboarding/integrations` | JWT | Step 3: integrations |
-| `POST` | `/onboarding/scale` | JWT | Step 4: scale |
-| `POST` | `/onboarding/complete` | JWT | Activate tenant |
+### Auth model
+
+Current model:
+
+- backend signs JWT with shared secret
+- frontend stores token locally and mirrors it into cookies
+- backend dependencies extract tenant identity from JWT
+
+### Tenant isolation model
+
+Current isolation is enforced mainly through:
+
+- JWT tenant claims
+- dependency-based tenant validation
+- explicit tenant filters in application queries
+- optional `X-Tenant-ID` header validation against JWT
+
+### Onboarding state model
+
+The codebase follows this rule:
+
+- `tenants.status` is the authoritative source of truth
+- `onboarding_progress` is legacy or UX support data
+
+This is the correct architectural rule and matches the migration notes in the repository.
 
 ---
 
-## Files Reference
+## What Is Complete
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `routes/auth.py` | Signup, login, JWT creation | ~310 |
-| `routes/onboarding.py` | 4-step onboarding + legacy 3-stage flow | ~490 |
-| `utils/jwt_middleware.py` | JWT verification, tenant extraction, access control | ~181 |
-| `utils/supabase_client.py` | Database singleton | ~56 |
-| `main.py` | FastAPI app, CORS, router registration | ~137 |
+### Backend
+
+- [x] custom email/password authentication
+- [x] JWT generation and verification
+- [x] tenant creation at signup
+- [x] tenant membership model
+- [x] onboarding routes
+- [x] active-tenant guard dependency
+- [x] workspace switching
+- [x] email verification route family
+- [x] password reset route family exists
+
+### Frontend
+
+- [x] login page
+- [x] signup page
+- [x] auth context
+- [x] onboarding wizard UI
+- [x] onboarding completion screen
+- [x] dashboard onboarding checklist
+- [x] sidebar layout
+- [x] middleware-based redirects
+
+---
+
+## What Is Not Fully Complete
+
+Phase 1 is not perfectly clean or fully aligned yet. The biggest issues are architectural consistency and documentation accuracy.
+
+### 1. The old docs misstate the auth architecture
+
+Not accurate anymore:
+
+- "Supabase Auth" as the primary auth system
+- "RLS enforced foundation" as an active security layer
+
+Actual architecture:
+
+- custom auth tables
+- custom `bcrypt` hashing
+- custom JWTs
+- Supabase service-role database access
+
+### 2. RLS is documented but not actually enabled as the active protection layer
+
+The migration files explicitly document RLS as future work. The system currently uses `SERVICE_ROLE_KEY`, which bypasses RLS, so tenant isolation depends on application logic instead of database policy enforcement.
+
+### 3. Onboarding APIs are inconsistent
+
+Current inconsistencies:
+
+- newer onboarding endpoints use JWT dependencies
+- legacy `/onboarding/status` still uses `X-Tenant-ID`
+- legacy `/onboarding/intent` still uses `X-Tenant-ID`
+- there are two onboarding models in the codebase at once
+
+### 4. Auth API completeness is mixed
+
+Not fully complete:
+
+- `/auth/me` is still a placeholder
+- tenant selection at login is still "first tenant by join date"
+- some future-oriented comments are stale because workspace switching now exists
+
+### 5. Frontend protection is only partially centralized
+
+Current issues:
+
+- route protection is split between React auth context and Next.js middleware
+- middleware only targets a subset of protected app routes
+- status decisions rely on cookies populated client-side after login
+
+### 6. Some Phase 1.5 work already exists inside the codebase
+
+The codebase already includes:
+
+- password reset endpoints
+- email verification routes
+- social login entry points
+
+This means the phase boundary between Phase 1 and Phase 1.5 is not clean in implementation.
+
+---
+
+## Verified Completion Matrix
+
+### Foundation
+
+- [x] authentication foundation exists
+- [x] tenant identity foundation exists
+- [x] onboarding foundation exists
+- [x] frontend auth state exists
+- [x] route redirect logic exists
+
+### Auth correctness
+
+- [x] passwords hashed with bcrypt
+- [x] JWT middleware exists
+- [x] email/password login works in code path
+- [x] signup creates tenant context
+- [x] tenant activation via onboarding exists
+- [ ] `/auth/me` is complete
+
+### Tenant security
+
+- [x] tenant ID is embedded in JWT
+- [x] header spoofing validation exists
+- [x] active-tenant guard exists
+- [ ] RLS is the active enforcement layer
+- [ ] all onboarding endpoints consistently use JWT-only tenant identity
+
+### Frontend flow
+
+- [x] login page exists
+- [x] signup page exists
+- [x] onboarding pages exist
+- [x] dashboard onboarding checklist exists
+- [x] sidebar layout exists
+- [ ] frontend protection is fully centralized and consistent
+
+---
+
+## Recommended Definition Of Done
+
+Phase 1 should be considered fully complete only when:
+
+1. the auth architecture is accurately documented as custom JWT auth
+2. all tenant-sensitive onboarding routes use JWT-derived tenant identity
+3. `/auth/me` is implemented properly
+4. middleware and client auth guards are aligned and cover all protected app routes
+5. the intended Phase 1 versus Phase 1.5 boundary is clarified
+6. either RLS is truly enabled or the docs clearly state application-enforced isolation as the production mechanism
+
+---
+
+## Recommended Next Work
+
+### Priority 1 - clean up architecture truth
+
+- remove references to Supabase Auth as the main auth engine
+- remove references to active RLS where it is not true
+- document custom JWT auth as the actual Phase 1 foundation
+
+### Priority 2 - unify onboarding security
+
+- move `/onboarding/status` to JWT-based tenant resolution
+- move `/onboarding/intent` to JWT-based tenant resolution
+- decide whether the legacy onboarding endpoints should remain or be retired
+
+### Priority 3 - finish auth API cohesion
+
+- implement `/auth/me`
+- make the multi-workspace story explicit in docs and UI
+- align auth context and middleware coverage
+
+### Priority 4 - clarify phase boundaries
+
+- keep Phase 1 about foundation
+- keep Phase 1.5 about auth hardening and cleanup
+- move already-existing 1.5 items in docs from “planned” to “partially implemented” where appropriate
+
+---
+
+## Conclusion
+
+Phase 1 has built the real application foundation and is functionally strong.
+
+The correct status is:
+
+**Core foundation implemented, but documentation, security-model clarity, and endpoint consistency still need cleanup.**
