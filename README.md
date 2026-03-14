@@ -252,7 +252,10 @@ tail -f logs/*.log         # All at once
 
 ## Roadmap
 
-Full roadmap is in `docs/phase_wise_plan`.
+Full text roadmap is in `docs/phases/phase_wise_plan.md`.
+
+🔥 **Interactive Tracker:** 
+You can track your real-time execution progress using the standalone UI tracker! Just double-click `docs/progress.html` in your file browser to open the interactive Phase Dashboard.
 
 **Before Handover (Phases 0–7):**
 - Phase 0 → UI/UX Design system (shadcn/ui)

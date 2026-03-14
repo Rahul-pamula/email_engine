@@ -499,7 +499,17 @@ export default function ContactsPage() {
                     <button onClick={handleExport} style={btnOutline}>
                         <Download style={{ width: "16px", height: "16px" }} /> Export CSV
                     </button>
-                    <button onClick={() => setShowUpload(true)} style={btnPrimary}>
+                    <button
+                        onClick={() => stats && stats.usage_percent < 100 ? setShowUpload(true) : null}
+                        disabled={stats?.usage_percent === 100}
+                        title={stats?.usage_percent === 100 ? "Contact limit reached — upgrade your plan to add more" : "Upload Contacts"}
+                        style={{
+                            ...btnPrimary,
+                            ...(stats?.usage_percent === 100
+                                ? { opacity: 0.5, cursor: 'not-allowed', border: '1px solid rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.12)', color: '#F87171' }
+                                : {})
+                        }}
+                    >
                         <Upload style={{ width: "16px", height: "16px" }} /> Upload Contacts
                     </button>
                 </div>
@@ -535,6 +545,56 @@ export default function ContactsPage() {
                             transition: "width 300ms ease"
                         }} />
                     </div>
+                </div>
+            )}
+
+            {/* Contact limit warning banners */}
+            {stats && stats.usage_percent >= 100 && (
+                <div style={{
+                    marginBottom: "16px", padding: "12px 16px",
+                    borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)",
+                    backgroundColor: "rgba(239,68,68,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between"
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <AlertTriangle style={{ width: "16px", height: "16px", color: "#F87171", flexShrink: 0 }} />
+                        <div>
+                            <p style={{ fontSize: "13px", fontWeight: 600, color: "#F87171", margin: "0 0 2px" }}>Contact limit reached</p>
+                            <p style={{ fontSize: "12px", color: colors.textSecondary, margin: 0 }}>
+                                You've used all {stats.limit.toLocaleString()} contacts on your plan. Upgrade to continue adding contacts.
+                            </p>
+                        </div>
+                    </div>
+                    <Link href="/settings/billing" style={{
+                        padding: "7px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 600,
+                        backgroundColor: "rgba(239,68,68,0.15)", color: "#F87171",
+                        border: "1px solid rgba(239,68,68,0.3)", textDecoration: "none", whiteSpace: "nowrap"
+                    }}>
+                        Upgrade Plan →
+                    </Link>
+                </div>
+            )}
+            {stats && stats.usage_percent >= 80 && stats.usage_percent < 100 && (
+                <div style={{
+                    marginBottom: "16px", padding: "12px 16px",
+                    borderRadius: "8px", border: "1px solid rgba(234,179,8,0.3)",
+                    backgroundColor: "rgba(234,179,8,0.07)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between"
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <AlertTriangle style={{ width: "16px", height: "16px", color: "#FDE047", flexShrink: 0 }} />
+                        <p style={{ fontSize: "13px", color: "#FDE047", margin: 0 }}>
+                            You've used <strong>{stats.usage_percent}%</strong> of your {stats.limit.toLocaleString()} contact limit.
+                            Consider upgrading before you hit the cap.
+                        </p>
+                    </div>
+                    <Link href="/settings/billing" style={{
+                        padding: "7px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 600,
+                        backgroundColor: "rgba(234,179,8,0.12)", color: "#FDE047",
+                        border: "1px solid rgba(234,179,8,0.3)", textDecoration: "none", whiteSpace: "nowrap"
+                    }}>
+                        View Plans →
+                    </Link>
                 </div>
             )}
 

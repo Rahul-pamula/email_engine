@@ -40,15 +40,18 @@ class ContactService:
         
         current_count = result.count or 0
         
-        # Get max limit
+        # Get max limit from the tenant's current plan
         tenant = db.client.table("tenants")\
-            .select("max_contacts")\
+            .select("plan_id, plans!tenants_plan_id_fkey(max_contacts)")\
             .eq("id", tenant_id)\
             .single()\
             .execute()
         
-        max_contacts = tenant.data.get("max_contacts", 1000) if tenant.data else 1000
-        
+        # Default fallback to 500 (Free plan limit) if relation is totally broken
+        max_contacts = 500
+        if tenant.data and tenant.data.get("plans"):
+            max_contacts = tenant.data["plans"].get("max_contacts", 500)
+            
         can_add = (current_count + additional_count) <= max_contacts
         
         return can_add, {

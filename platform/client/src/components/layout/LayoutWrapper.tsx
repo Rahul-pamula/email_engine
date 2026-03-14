@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 
 interface LayoutWrapperProps {
     children: React.ReactNode;
@@ -20,14 +21,11 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     // Full-screen routes: template editor (/templates/[id]) should hide sidebar for immersive editing
     const isFullScreenRoute = /^\/templates\/[^/]+$/.test(pathname || '') && pathname !== '/templates';
 
-    // Only show sidebar for authenticated users on app routes (not public, onboarding, or full-screen)
+    // Only show sidebar/header for authenticated users on app routes
     const showSidebar = !isPublicRoute && !isOnboardingRoute && !isFullScreenRoute && isAuthenticated;
 
-    // If the user's tenant is 'onboarding', but they are trying to access a protected route like /dashboard,
-    // AuthContext will redirect them. We want to show a loading state here to prevent the dashboard from flashing.
-    const isRedirectingToOnboarding = isAuthenticated && user?.tenantStatus === 'onboarding' && !isOnboardingRoute && !isPublicRoute;
-
     // Show loading state
+    const isRedirectingToOnboarding = isAuthenticated && user?.tenantStatus === 'onboarding' && !isOnboardingRoute && !isPublicRoute;
     if (isLoading || isRedirectingToOnboarding) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[var(--bg-primary)]">
@@ -41,12 +39,14 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     return (
         <div style={{
             display: 'flex',
-            minHeight: '100vh',
+            height: '100vh',
+            overflow: 'hidden'
         }}>
             {showSidebar && <Sidebar />}
 
-            <main className="flex-1 overflow-auto bg-[var(--bg-primary)]">
-                <div style={{
+            <main className="flex-1 overflow-auto bg-[var(--bg-primary)] flex flex-col">
+                {showSidebar && <Header />}
+                <div className="flex-1" style={{
                     padding: showSidebar ? '32px' : '0',
                     maxWidth: showSidebar ? '1280px' : '100%',
                 }}>

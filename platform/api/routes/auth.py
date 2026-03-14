@@ -31,6 +31,52 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
+PUBLIC_EMAIL_PROVIDERS = [
+    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", 
+    "icloud.com", "aol.com", "protonmail.com", "zoho.com"
+]
+
+def get_verified_domain_tenant(email: str) -> Optional[str]:
+    """Check if the email belongs to a verified enterprise domain."""
+    from utils.supabase_client import db
+    try:
+        domain = email.split('@')[1].lower()
+        if domain in PUBLIC_EMAIL_PROVIDERS:
+            return None
+            
+        res = db.client.table("domains").select("tenant_id").eq("domain_name", domain).eq("status", "verified").execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]["tenant_id"]
+    except Exception:
+        pass
+    return None
+
+
+async def notify_workspace_owners(tenant_id: str, requester_email: str):
+    """Notify users with 'owner' or 'admin' roles that a new user requested access."""
+    from utils.supabase_client import db
+    from services.email_service import send_access_request_notification
+    try:
+        # Get workspace name
+        t_res = db.client.table("tenants").select("company_name").eq("id", tenant_id).execute()
+        workspace_name = t_res.data[0].get("company_name", "Your Team") if t_res.data else "Your Team"
+        
+        # Get owners/admins
+        owners_res = db.client.table("tenant_users").select("user_id").eq("tenant_id", tenant_id).in_("role", ["owner", "admin"]).execute()
+        if not owners_res.data:
+            return
+            
+        owner_ids = [o["user_id"] for o in owners_res.data]
+        users_res = db.client.table("users").select("email").in_("id", owner_ids).execute()
+        
+        # Dispatch emails
+        emails = [u["email"] for u in (users_res.data or []) if u.get("email")]
+        for email in emails:
+            await send_access_request_notification(email, requester_email, workspace_name)
+            
+    except Exception as e:
+        print(f"[JIT Notification Error] {e}")
+
 
 # === Pydantic Models ===
 
@@ -39,6 +85,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
     full_name: str = Field(..., min_length=1, max_length=200)
+    tenant_name: Optional[str] = None  # Optional: if absent, user is joining via invite
 
 
 class LoginRequest(BaseModel):
@@ -54,6 +101,11 @@ class AuthResponse(BaseModel):
     token: str
     onboarding_required: bool
     tenant_status: str
+
+
+class SwitchWorkspaceRequest(BaseModel):
+    """Request to switch to a different workspace"""
+    tenant_id: str
 
 
 # === Helper Functions ===
@@ -136,43 +188,71 @@ async def signup(request: Request, body_request: SignupRequest):
         
         db.client.table("users").insert(user_data).execute()
         
-        # 2. Create tenant (status: onboarding)
-        tenant_data = {
-            "id": tenant_id,
-            "email": body_request.email,  # Required by existing schema
-            "status": "onboarding",
-            "created_at": datetime.utcnow().isoformat()
-        }
+        # 2. Check if this is an invited user (no tenant_name provided)
+        if not body_request.tenant_name:
+            # Invited user: don't create a new workspace.
+            # They'll be added to the correct workspace when they call /team/invites/accept
+            # Use a placeholder tenant row only for JWT payload; real tenant assigned after accept.
+            tenant_status = "pending_join"
+            role = "invited_pending"
+            # We need a dummy tenant_id for the JWT — just use a zero UUID
+            tenant_id = "00000000-0000-0000-0000-000000000000"
         
-        db.client.table("tenants").insert(tenant_data).execute()
-        
-        # 3. Link user to tenant as owner
-        tenant_user_data = {
-            "tenant_id": tenant_id,
-            "user_id": user_id,
-            "role": "owner",
-            "joined_at": datetime.utcnow().isoformat()
-        }
-        
-        db.client.table("tenant_users").insert(tenant_user_data).execute()
-        
-        # 4. Create onboarding progress tracker
-        onboarding_data = {
-            "tenant_id": tenant_id,
-            "stage_basic_info": False,
-            "stage_compliance": False,
-            "stage_intent": False,
-            "started_at": datetime.utcnow().isoformat()
-        }
-        
-        db.client.table("onboarding_progress").insert(onboarding_data).execute()
+        # 3. Check for Enterprise JIT Auto-Discovery
+        elif jit_tenant_id := get_verified_domain_tenant(body_request.email):
+            tenant_id = jit_tenant_id
+            
+            # Create a Join Request instead of a new tenant
+            db.client.table("join_requests").insert({
+                "user_id": user_id,
+                "tenant_id": tenant_id,
+                "status": "pending",
+                "risk_score": "Low Risk"
+            }).execute()
+            
+            # Blast notification to Workspace Owners
+            await notify_workspace_owners(tenant_id, body_request.email)
+            
+            tenant_status = "pending_join"
+            role = "pending"
+        else:
+            # Normal isolated tenant creation (status: onboarding)
+            tenant_data = {
+                "id": tenant_id,
+                "email": body_request.email,  # Required by existing schema
+                "status": "onboarding",
+                "created_at": datetime.utcnow().isoformat()
+            }
+            db.client.table("tenants").insert(tenant_data).execute()
+            
+            # Link user to tenant as owner
+            tenant_user_data = {
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "role": "owner",
+                "joined_at": datetime.utcnow().isoformat()
+            }
+            db.client.table("tenant_users").insert(tenant_user_data).execute()
+            
+            # Create onboarding progress tracker
+            onboarding_data = {
+                "tenant_id": tenant_id,
+                "stage_basic_info": False,
+                "stage_compliance": False,
+                "stage_intent": False,
+                "started_at": datetime.utcnow().isoformat()
+            }
+            db.client.table("onboarding_progress").insert(onboarding_data).execute()
+            
+            tenant_status = "onboarding"
+            role = "owner"
         
         # 5. Generate JWT token
         token_data = {
             "user_id": user_id,
             "tenant_id": tenant_id,
             "email": body_request.email,
-            "role": "owner"
+            "role": role
         }
         
         access_token = create_access_token(token_data)
@@ -202,8 +282,8 @@ async def signup(request: Request, body_request: SignupRequest):
             user_id=user_id,
             tenant_id=tenant_id,
             token=access_token,
-            onboarding_required=True,
-            tenant_status="onboarding"
+            onboarding_required=(tenant_status == "onboarding"),
+            tenant_status=tenant_status
         )
         
     except Exception as e:
@@ -275,14 +355,39 @@ async def login(request: Request, body_request: LoginRequest):
     ).eq("user_id", user["id"]).order("joined_at").limit(1).execute()
     
     if not tenant_user_result.data:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No tenant found for user"
-        )
-    
-    tenant_user = tenant_user_result.data[0]
-    tenant_id = tenant_user["tenant_id"]
-    role = tenant_user["role"]
+        # Check if they are in the waiting room
+        join_req_result = db.client.table("join_requests").select("tenant_id, status").eq("user_id", user["id"]).execute()
+        
+        if not join_req_result.data:
+            # Check if they have a pending team invitation by email (not yet accepted)
+            invite_res = db.client.table("team_invitations").select("tenant_id").eq("email", user["email"]).execute()
+            if invite_res.data:
+                # They have a pending invite but haven't accepted yet
+                # Give them a minimal JWT so they can hit /team/invites/accept
+                tenant_id = invite_res.data[0]["tenant_id"]
+                role = "invited_pending"
+                tenant_status = "pending_join"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="No assigned workspace or pending requests found for user"
+                )
+        else:
+            join_req = join_req_result.data[0]
+            tenant_id = join_req["tenant_id"]
+            role = "pending"
+            
+            if join_req["status"] == "blocked":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your request to join this workspace was denied by the administrator."
+                )
+            
+            tenant_status = "pending_join"
+    else:
+        tenant_user = tenant_user_result.data[0]
+        tenant_id = tenant_user["tenant_id"]
+        role = tenant_user["role"]
     
     # Get tenant status
     tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
@@ -293,7 +398,10 @@ async def login(request: Request, body_request: LoginRequest):
             detail="Tenant not found"
         )
     
-    tenant_status = tenant_result.data[0]["status"]
+    if role == "pending":
+        tenant_status = "pending_join"
+    else:
+        tenant_status = tenant_result.data[0]["status"]
     
     # Generate JWT token
     token_data = {
@@ -331,6 +439,81 @@ async def get_current_user():
         "message": "JWT verification not yet implemented",
         "note": "Use the token from signup/login in Authorization header"
     }
+
+
+from utils.jwt_middleware import require_authenticated_user, JWTPayload
+
+@router.get("/workspaces")
+async def get_user_workspaces(jwt_payload: JWTPayload = Depends(require_authenticated_user)):
+    """Get all workspaces the authenticated user belongs to."""
+    from utils.supabase_client import db
+    
+    # Get all tenant links for this user
+    links = db.client.table("tenant_users").select("tenant_id, role").eq("user_id", jwt_payload.user_id).execute()
+    if not links.data:
+        return []
+        
+    tenant_ids = [row["tenant_id"] for row in links.data]
+    roles_by_tenant = {row["tenant_id"]: row["role"] for row in links.data}
+    
+    # Get tenant details
+    tenants = db.client.table("tenants").select("id, company_name, status").in_("id", tenant_ids).execute()
+    
+    results = []
+    for t in (tenants.data or []):
+        results.append({
+            "tenant_id": t["id"],
+            "company_name": t.get("company_name") or "Unnamed Workspace",
+            "role": roles_by_tenant.get(t["id"]),
+            "status": t.get("status")
+        })
+        
+    return results
+
+
+@router.post("/switch-workspace", response_model=AuthResponse)
+async def switch_workspace(
+    body: SwitchWorkspaceRequest,
+    jwt_payload: JWTPayload = Depends(require_authenticated_user)
+):
+    """Switch to a different workspace and receive a new JWT token."""
+    from utils.supabase_client import db
+    
+    # Verify the user is actually a member of the requested tenant
+    link = db.client.table("tenant_users").select("role").eq("user_id", jwt_payload.user_id).eq("tenant_id", body.tenant_id).execute()
+    
+    if not link.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this workspace."
+        )
+        
+    role = link.data[0]["role"]
+    
+    # Get tenant status to ensure it's not suspended
+    tenant = db.client.table("tenants").select("status").eq("id", body.tenant_id).execute()
+    if not tenant.data:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+        
+    tenant_status = tenant.data[0]["status"]
+    
+    # Generate new JWT token scoped to this tenant
+    token_data = {
+        "user_id": jwt_payload.user_id,
+        "tenant_id": body.tenant_id,
+        "email": jwt_payload.email,
+        "role": role
+    }
+    
+    access_token = create_access_token(token_data)
+    
+    return AuthResponse(
+        user_id=jwt_payload.user_id,
+        tenant_id=body.tenant_id,
+        token=access_token,
+        onboarding_required=(tenant_status == "onboarding"),
+        tenant_status=tenant_status
+    )
 
 
 # === OAuth Routes ===
@@ -474,14 +657,25 @@ async def process_oauth_user(email: str, full_name: str, provider: str):
         ).eq("user_id", user["id"]).order("joined_at").limit(1).execute()
         
         if not tenant_user_result.data:
-            return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=NoTenantFound")
+            # Check waiting room
+            join_req_result = db.client.table("join_requests").select("tenant_id, status").eq("user_id", user["id"]).execute()
+            if not join_req_result.data:
+                return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=NoTenantFound")
+                
+            join_req = join_req_result.data[0]
+            tenant_id = join_req["tenant_id"]
+            role = "pending"
+            tenant_status = "pending_join"
             
-        tenant_user = tenant_user_result.data[0]
-        tenant_id = tenant_user["tenant_id"]
-        role = tenant_user["role"]
-        
-        tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
-        tenant_status = tenant_result.data[0]["status"] if tenant_result.data else "active"
+            if join_req["status"] == "blocked":
+                return RedirectResponse(f"{FRONTEND_CALLBACK_URL}?error=AccountBlocked")
+        else:
+            tenant_user = tenant_user_result.data[0]
+            tenant_id = tenant_user["tenant_id"]
+            role = tenant_user["role"]
+            
+            tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
+            tenant_status = tenant_result.data[0]["status"] if tenant_result.data else "active"
         
         user_id = user["id"]
     else:
@@ -504,43 +698,60 @@ async def process_oauth_user(email: str, full_name: str, provider: str):
             "created_at": datetime.utcnow().isoformat()
         }).execute()
         
-        # Create tenant (upsert to handle cases where tenant email already exists)
-        tenant_result = db.client.table("tenants").upsert({
-            "id": tenant_id,
-            "email": email,
-            "status": "onboarding",
-            "created_at": datetime.utcnow().isoformat()
-        }, on_conflict="email").execute()
+        # Check for Enterprise JIT Auto-Discovery
+        jit_tenant_id = get_verified_domain_tenant(email)
         
-        # If tenant already existed, use its actual ID
-        if tenant_result.data:
-            tenant_id = tenant_result.data[0]["id"]
-        
-        # Link user to tenant (skip if already linked)
-        try:
-            db.client.table("tenant_users").insert({
-                "tenant_id": tenant_id,
+        if jit_tenant_id:
+            tenant_id = jit_tenant_id
+            
+            db.client.table("join_requests").insert({
                 "user_id": user_id,
-                "role": "owner",
-                "joined_at": datetime.utcnow().isoformat()
-            }).execute()
-        except Exception:
-            pass  # Already linked
-        
-        # Setup onboarding state (skip if already exists)
-        try:
-            db.client.table("onboarding_progress").insert({
                 "tenant_id": tenant_id,
-                "stage_basic_info": False,
-                "stage_compliance": False,
-                "stage_intent": False,
-                "started_at": datetime.utcnow().isoformat()
+                "status": "pending",
+                "risk_score": "Low Risk"
             }).execute()
-        except Exception:
-            pass  # Already exists
-        
-        tenant_status = "onboarding"
-        role = "owner"
+            
+            # Blast notification to Workspace Owners
+            await notify_workspace_owners(tenant_id, email)
+            
+            tenant_status = "pending_join"
+            role = "pending"
+        else:
+            tenant_id = str(uuid.uuid4())
+            # Create isolated tenant
+            tenant_result = db.client.table("tenants").upsert({
+                "id": tenant_id,
+                "email": email,
+                "status": "onboarding",
+                "created_at": datetime.utcnow().isoformat()
+            }, on_conflict="email").execute()
+            
+            if tenant_result.data:
+                tenant_id = tenant_result.data[0]["id"]
+            
+            try:
+                db.client.table("tenant_users").insert({
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "role": "owner",
+                    "joined_at": datetime.utcnow().isoformat()
+                }).execute()
+            except Exception:
+                pass
+            
+            try:
+                db.client.table("onboarding_progress").insert({
+                    "tenant_id": tenant_id,
+                    "stage_basic_info": False,
+                    "stage_compliance": False,
+                    "stage_intent": False,
+                    "started_at": datetime.utcnow().isoformat()
+                }).execute()
+            except Exception:
+                pass
+            
+            tenant_status = "onboarding"
+            role = "owner"
 
     # Generate Secure JWT
     token_data = {

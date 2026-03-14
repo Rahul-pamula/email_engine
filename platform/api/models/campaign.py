@@ -7,6 +7,9 @@ class CampaignBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     subject: str = Field(..., min_length=1, max_length=500)
     body_html: str = Field(..., description="HTML email content with optional Spintax/variables")
+    from_name: str = Field(..., description="The display name shown to recipients")
+    from_prefix: str = Field(..., pattern="^[a-zA-Z0-9._%+-]+$", description="The local part of the email")
+    domain_id: UUID = Field(..., description="The ID of the verified domain to be used")
     status: str = Field(default="draft") # draft, scheduled, sending, sent, paused, cancelled
     scheduled_at: Optional[datetime] = None
 
@@ -17,6 +20,9 @@ class CampaignUpdate(BaseModel):
     name: Optional[str] = None
     subject: Optional[str] = None
     body_html: Optional[str] = None
+    from_name: Optional[str] = None
+    from_prefix: Optional[str] = None
+    domain_id: Optional[UUID] = None
     status: Optional[str] = None
     scheduled_at: Optional[datetime] = None
 

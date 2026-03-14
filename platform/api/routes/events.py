@@ -97,7 +97,7 @@ async def list_events(
 
 @router.get("/summary")
 async def events_summary(tenant_id: str = Depends(require_active_tenant)):
-    """Quick stats card for dashboard"""
+    """Quick stats card for dashboard (O(1) Space Complexity)"""
     from utils.supabase_client import db
     
     # Get campaign IDs for this tenant
@@ -107,19 +107,18 @@ async def events_summary(tenant_id: str = Depends(require_active_tenant)):
     if not camp_ids:
         return {"sent": 0, "failed": 0, "pending": 0, "total": 0}
 
-    all_dispatch = db.client.table("campaign_dispatch")\
-        .select("status")\
-        .in_("campaign_id", camp_ids)\
-        .execute()
+    # Execute DB-level COUNT queries instead of fetching full rows into Python memory
+    def get_count_for_status(statuses: list):
+        res = db.client.table("campaign_dispatch").select("id", count="exact").in_("campaign_id", camp_ids).in_("status", statuses).execute()
+        return res.count if hasattr(res, 'count') and res.count is not None else 0
 
-    rows = all_dispatch.data or []
-    sent = sum(1 for r in rows if r["status"] == "DISPATCHED")
-    failed = sum(1 for r in rows if r["status"] == "FAILED")
-    pending = sum(1 for r in rows if r["status"] in ("PENDING", "PROCESSING"))
+    sent = get_count_for_status(["DISPATCHED"])
+    failed = get_count_for_status(["FAILED"])
+    pending = get_count_for_status(["PENDING", "PROCESSING"])
 
     return {
         "sent": sent,
         "failed": failed,
         "pending": pending,
-        "total": len(rows)
+        "total": sent + failed + pending
     }

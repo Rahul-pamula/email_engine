@@ -39,7 +39,11 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 UNSUB_SECRET = os.getenv("UNSUBSCRIBE_SECRET", "dev-unsub-secret-change-in-production")
 FRONTEND_BASE = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
-API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
+
+def _get_api_base() -> str:
+    """Reload API_URL from .env on every call so tunnel URL changes are picked up."""
+    load_dotenv(override=True)
+    return os.getenv("API_URL", "http://localhost:8000")
 
 def _make_unsub_token(contact_id: str, campaign_id: str) -> str:
     payload = f"{contact_id}:{campaign_id}"
@@ -49,7 +53,7 @@ def _make_unsub_token(contact_id: str, campaign_id: str) -> str:
 def _inject_email_footer(body_html: str, contact_id: str, campaign_id: str) -> str:
     """Append mandatory unsubscribe link + physical address footer to email HTML."""
     token = _make_unsub_token(contact_id, campaign_id)
-    unsub_url = f"{API_BASE}/unsubscribe?token={token}"
+    unsub_url = f"{_get_api_base()}/unsubscribe?token={token}"
     footer = f"""
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-family:sans-serif;font-size:12px;color:#9ca3af;">
   <p style="margin:0 0 6px;">You received this email because you subscribed to our mailing list.</p>
@@ -65,7 +69,7 @@ def _inject_email_footer(body_html: str, contact_id: str, campaign_id: str) -> s
 
 def _inject_tracking_pixel(body_html: str, dispatch_id: str) -> str:
     """Inject 1×1 tracking pixel to detect email opens."""
-    pixel = f'<img src="{API_BASE}/track/open/{dispatch_id}" width="1" height="1" style="display:none;" alt="" />'
+    pixel = f'<img src="{_get_api_base()}/track/open/{dispatch_id}" width="1" height="1" style="display:none;" alt="" />'
     # Insert just before </body> if present, else append
     if "</body>" in body_html.lower():
         return body_html.replace("</body>", pixel + "</body>", 1)
@@ -81,7 +85,7 @@ def _wrap_links(body_html: str, dispatch_id: str) -> str:
         if "/unsubscribe" in original_url or "/track/" in original_url:
             return match.group(0)
         encoded = base64.urlsafe_b64encode(original_url.encode()).decode().rstrip("=")
-        tracked_url = f"{API_BASE}/track/click?d={dispatch_id}&url={encoded}"
+        tracked_url = f"{_get_api_base()}/track/click?d={dispatch_id}&url={encoded}"
         return f'href="{tracked_url}"'
     return _re.sub(r'href="([^"]+)"', replace_href, body_html, flags=_re.IGNORECASE)
 
@@ -218,8 +222,8 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage, holding
             smtp_port     = int(os.getenv("SMTP_PORT", 587))
             smtp_user     = os.getenv("SMTP_USERNAME")
             smtp_pass     = os.getenv("SMTP_PASSWORD")
-            smtp_from     = os.getenv("SMTP_FROM_EMAIL", "noreply@emailengine.app")
-            smtp_from_name = os.getenv("SMTP_FROM_NAME", "Email Engine")
+            smtp_from     = payload.get("from_email") or os.getenv("SMTP_FROM_EMAIL", "noreply@emailengine.app")
+            smtp_from_name = payload.get("from_name") or os.getenv("SMTP_FROM_NAME", "Email Engine")
             subject       = payload.get("subject", "(No Subject)")
 
             message_id = None  # Will be set after send

@@ -8,6 +8,21 @@ Each phase has TWO parts:
   [FRONTEND] — Pages, components, UX flows
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🏗 CRITICAL ARCHITECTURE: DUAL EMAIL ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+To prevent platform/system emails from going to spam due to DMARC/Spoofing rules (like sending from @gmail.com via Amazon SES), the system uses TWO entirely separate email pipelines:
+
+1. CENTRALIZED SYSTEM EMAILER (Gmail SMTP / Supabase SMTP)
+   → Uses: `shrmail.app@gmail.com` via standard secure SMTP (smtp.gmail.com).
+   → Purpose: Auth (Password Resets, Welcome), Team Invites, Quota Warnings, Sender Verification OTPs.
+   → Why: Guarantees Inbox delivery for critical app functions without needing a verified custom domain.
+
+2. TENANT CAMPAIGN EMAILER (Amazon SES)
+   → Uses: The User's VERIFIED Custom Domain/Email (e.g., `sales@theircompany.com`) via SES API.
+   → Purpose: Bulk marketing campaigns, newsletters, subscriber communications.
+   → Why: Isolates sender reputation, handles high-volume throughput.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 � PHASE 0 — UI/UX Design System (Do FIRST before any new page)
   WHY: Currently pages use inline styles + hardcoded hex colors.
@@ -15,14 +30,14 @@ Each phase has TWO parts:
        Do this once → all future pages look professional automatically.
 
   [SETUP — One Time, ~1 Day]
-  ☐ Install shadcn/ui (40+ professional components pre-built)
+  - [ ] Install shadcn/ui (40+ professional components pre-built)
       → npx shadcn-ui@latest init
       → Add: Button, Card, Badge, Table, Dialog, Toast, Tabs, Select, Progress
-  ☐ Install Google Font (Inter) in layout.tsx
+  - [ ] Install Google Font (Inter) in layout.tsx
       → Inter is what Mailchimp, Vercel, Linear, Notion use
 
   [DESIGN TOKENS — globals.css — Define Once, Use Everywhere]
-  ☐ CSS Color Variables (never hardcode hex colors in components again):
+  - [ ] CSS Color Variables (never hardcode hex colors in components again):
       --bg-primary:    #0F172A   (page background)
       --bg-card:       #1E293B   (card surface)
       --bg-hover:      #293548   (hover state)
@@ -34,7 +49,7 @@ Each phase has TWO parts:
       --success:       #10B981   (green — sent, verified)
       --warning:       #F59E0B   (yellow — 80% quota, paused)
       --danger:        #EF4444   (red — failed, blocked)
-  ☐ Typography scale:
+  - [ ] Typography scale:
       H1: 28px bold  | H2: 20px semibold | H3: 16px semibold
       Body: 14px     | Caption: 12px     | Mono: 13px (for IDs, codes)
 
@@ -42,25 +57,25 @@ Each phase has TWO parts:
   Components are organized in 3 layers so new developers understand at a glance:
 
   ATOMS — Single purpose, no sub-components:
-  ☐ Button.tsx        → Primary, secondary, danger, ghost variants
-  ☐ Badge.tsx         → Small pill label (Free, Pro, Active)
-  ☐ HealthDot.tsx     → 🟢🟡🔴 colored dot with label
-  ☐ LoadingSpinner.tsx → Spinner on buttons while API awaits
+  - [ ] Button.tsx        → Primary, secondary, danger, ghost variants
+  - [ ] Badge.tsx         → Small pill label (Free, Pro, Active)
+  - [ ] HealthDot.tsx     → 🟢🟡🔴 colored dot with label
+  - [ ] LoadingSpinner.tsx → Spinner on buttons while API awaits
 
   MOLECULES — Combined atoms:
-  ☐ StatCard.tsx      → Large number + label + trend (↑12%)
-  ☐ StatusBadge.tsx   → Colored pill: sent/draft/failed/paused/active/throttled
-  ☐ ConfirmModal.tsx  → "Are you sure?" popup with confirm/cancel buttons
-  ☐ Toast system      → Success/warning/error popup notifications
+  - [ ] StatCard.tsx      → Large number + label + trend (↑12%)
+  - [ ] StatusBadge.tsx   → Colored pill: sent/draft/failed/paused/active/throttled
+  - [ ] ConfirmModal.tsx  → "Are you sure?" popup with confirm/cancel buttons
+  - [ ] Toast system      → Success/warning/error popup notifications
 
   ORGANISMS — Full sections with multiple molecules:
-  ☐ PageHeader.tsx    → Title + subtitle + right-side action button
-  ☐ DataTable.tsx     → Table + search bar + sort + pagination
-  ☐ EmptyState.tsx    → Icon + message + CTA when list is empty
-  ☐ Breadcrumb.tsx    → Campaigns > Holiday Sale > Analytics (back navigation)
+  - [ ] PageHeader.tsx    → Title + subtitle + right-side action button
+  - [ ] DataTable.tsx     → Table + search bar + sort + pagination
+  - [ ] EmptyState.tsx    → Icon + message + CTA when list is empty
+  - [ ] Breadcrumb.tsx    → Campaigns > Holiday Sale > Analytics (back navigation)
 
   SETUP:
-  ☐ tailwind.config.js → Map CSS variables to Tailwind class names:
+  - [ ] tailwind.config.js → Map CSS variables to Tailwind class names:
       → bg-primary, text-muted, border-subtle usable in className="bg-primary"
 
   [STANDARD PAGE LAYOUT — Every New Page Follows This]
@@ -70,33 +85,33 @@ Each phase has TWO parts:
       4. <EmptyState>— Shown if table has 0 rows (not a blank white box!)
 
   [UX RULES — Non-Negotiable on Every Page]
-  ☐ Every delete action → show ConfirmModal first
-  ☐ Every form submit  → show loading spinner on button while waiting
-  ☐ Every API success  → show Toast: "✅ Contacts imported successfully"
-  ☐ Every API error    → show Toast: "❌ Something went wrong. Try again."
-  ☐ Every empty list   → show EmptyState with helpful CTA button
-  ☐ Every list page    → has search input + at least one filter option
-  ☐ Mobile responsive  → sidebar hidden on mobile, hamburger menu added
+  - [ ] Every delete action → show ConfirmModal first
+  - [ ] Every form submit  → show loading spinner on button while waiting
+  - [ ] Every API success  → show Toast: "✅ Contacts imported successfully"
+  - [ ] Every API error    → show Toast: "❌ Something went wrong. Try again."
+  - [ ] Every empty list   → show EmptyState with helpful CTA button
+  - [ ] Every list page    → has search input + at least one filter option
+  - [ ] Mobile responsive  → sidebar hidden on mobile, hamburger menu added
 
   [ACCESSIBILITY — WCAG 2.1 AA]
-  ☐ FIX globals.css → Remove or override "*:focus { outline: none }" if it exists
+  - [ ] FIX globals.css → Remove or override "*:focus { outline: none }" if it exists
       → A simple :focus-visible is not enough if the * selector has higher precedence.
       → Ensure the hard reset is completely removed. Replace with:
          *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  ☐ Color contrast: --text-muted (#94A3B8) on --bg-card (#1E293B) = 5.6:1 ✅ passes
-  ☐ Keyboard navigation for all modals (Escape to close, Tab through buttons)
-  ☐ ARIA labels on all icon-only buttons (e.g. delete, edit, close)
-  ☐ Minimum 44x44px touch targets on all buttons (mobile)
+  - [ ] Color contrast: --text-muted (#94A3B8) on --bg-card (#1E293B) = 5.6:1 ✅ passes
+  - [ ] Keyboard navigation for all modals (Escape to close, Tab through buttons)
+  - [ ] ARIA labels on all icon-only buttons (e.g. delete, edit, close)
+  - [ ] Minimum 44x44px touch targets on all buttons (mobile)
 
   [LOCAL DEVELOPMENT SETUP]
-  ☐ Add Mailhog to docker-compose.yml as dev-only service:
+  - [ ] Add Mailhog to docker-compose.yml as dev-only service:
       → docker-compose --profile dev  → starts Mailhog on port 8025
       → Mailhog = fake SMTP server, all emails go to web UI, not real inboxes
       → Developers can test emails without needing Amazon SES credentials
-  ☐ Seed data script (scripts/seed_dev_data.py):
+  - [ ] Seed data script (scripts/seed_dev_data.py):
       → Creates: 1 tenant, 500 fake contacts, 3 templates, 2 campaigns
       → New developer runs this once to get a realistic test environment
-  ☐ .env.example file with ALL variables documented
+  - [ ] .env.example file with ALL variables documented
       → Every variable has a comment explaining what it does
 
   NOTE: Phase 0 = 1 day. Saves 2 weeks of fixing inconsistent UIs later.
@@ -105,16 +120,17 @@ Each phase has TWO parts:
 ─────────────────────────────────────────
 �🏗 PHASE 1 — Foundation ✅ DONE
   [BACKEND]
-  ✔ Auth (Supabase Auth)
-  ✔ Multi-tenant isolation (RLS)
-  ✔ Onboarding flow
-  ✔ JWT middleware
+  - [x] Auth (Supabase Auth)
+  - [x] Multi-tenant isolation (RLS)
+  - [x] Onboarding flow
+  - [x] JWT middleware
 
   [FRONTEND]
-  ✔ Login page
-  ✔ Signup page
-  ✔ Onboarding wizard (org name, country, address)
-  ✔ Sidebar navigation layout
+  - [x] Login page
+  - [x] Signup page
+  - [x] Onboarding wizard (org name, country, address)
+  - [x] Interactive Onboarding Dashboard (Tracks setup progress: Account, Domain, Sender, Contacts, Campaigns)
+  - [x] Sidebar navigation layout
 
   NOTE: Forgot password page is broken (currently unlinked/disabled).
         Fix in Phase 1.5 using Supabase Auth flows.
@@ -122,9 +138,9 @@ Each phase has TWO parts:
 ─────────────────────────────────────────
 🏗 PHASE 1.5 — Auth Cleanup
   [BACKEND]
-  ☐ Remove custom /auth/forgot-password endpoint
-  ☐ Remove custom /auth/reset-password endpoint
-  ☐ Audit logs table (record: who did what, when, on which record)
+  - [ ] Remove custom /auth/forgot-password endpoint
+  - [ ] Remove custom /auth/reset-password endpoint
+  - [ ] Audit logs table (record: who did what, when, on which record)
       → Log: contact deletes, campaign sends, plan changes, login events
       → Columns: tenant_id, user_id, action, resource_type, resource_id, timestamp
       → PRIVACY RULE: Never log sensitive data (no CSV content, no email body)
@@ -132,11 +148,12 @@ Each phase has TWO parts:
       → Never log: actual email addresses, CSV rows, email HTML content ❌
 
   [FRONTEND]
-  ☐ Fix forgot-password page → use Supabase Auth built-in reset email flow
-  ☐ Fix reset-password page → complete Supabase Auth password update
-  ☐ Enable Social Auth (Google, GitHub) via Supabase Dashboard
-  ☐ Test: sign up → verify email → login → forgot password → reset
-  ☐ Audit log viewer (admin can see who deleted 10,000 contacts and when)
+  - [ ] Configure Supabase Auth SMTP to use `shrmail.app@gmail.com` (Centralized System Emailer)
+  - [ ] Fix forgot-password page → use Supabase Auth built-in reset email flow
+  - [ ] Fix reset-password page → complete Supabase Auth password update
+  - [ ] Enable Social Auth (Google, GitHub) via Supabase Dashboard
+  - [ ] Test: sign up → verify email → login → forgot password → reset
+  - [ ] Audit log viewer (admin can see who deleted 10,000 contacts and when)
 
 ─────────────────────────────────────────
 🏗 PHASE 1.6 — GDPR / Legal Compliance
@@ -144,84 +161,84 @@ Each phase has TWO parts:
        Build this before onboarding paying customers.
 
   [BACKEND]
-  ☐ Data export API (Async Process):
+  - [ ] Data export API (Async Process):
       → POST /tenant/export-data → creates job, returns 202 Accepted + job_id
       → GET /tenant/export-data/status/{job_id} → checks progress
       → GET /tenant/export-data/download/{job_id} → downloads ZIP (expires in 7 days)
       → Prevents timeout issues when exporting large contact lists
-  ☐ Right to be forgotten: DELETE /contacts/{id}/anonymize
+  - [ ] Right to be forgotten: DELETE /contacts/{id}/anonymize
       → Does NOT delete the row (breaks analytics history)
       → Overwrites PII: email → "deleted@gdpr.invalid", name → "[Deleted]"
       → Keeps campaign stats intact (we sent X emails to Y contacts)
-  ☐ Soft delete pattern (add to ALL main tables):
+  - [ ] Soft delete pattern (add to ALL main tables):
       → Add deleted_at TIMESTAMP NULL column to: contacts, campaigns, templates
       → All queries filter WHERE deleted_at IS NULL
       → 30-day retention window before permanent erasure
-  ☐ Consent tracking:
+  - [ ] Consent tracking:
       → Add: consent_source, consent_date, consent_ip to contacts table
       → Captured at import time ("Uploaded via CSV on 2026-02-20")
 
   [FRONTEND]
-  ☐ Restore modal for soft-deleted items:
+  - [ ] Restore modal for soft-deleted items:
       → "This contact was deleted 5 days ago. Restore?"
       → Available for 30 days after deletion
-  ☐ Data export button in Settings:
+  - [ ] Data export button in Settings:
       → "Download all my data" → generates ZIP, emails download link
-  ☐ Consent column visible in contacts table
-  ☐ Privacy policy / Terms page linked from footer (even if just external links)
+  - [ ] Consent column visible in contacts table
+  - [ ] Privacy policy / Terms page linked from footer (even if just external links)
 
 ─────────────────────────────────────────
 🏗 PHASE 2 — Contacts Engine ✅ DONE
   [BACKEND]
-  ✔ CSV/XLSX ingestion
-  ✔ Deduplication
-  ✔ Contact status (subscribed, unsubscribed, bounced)
-  ✔ Segmentation filters
-  ✔ Bulk delete
-  ✔ Contact search endpoint (search by email, name, tag)
-  ✔ Tags CRUD API (add/remove/list tags per contact)
-  ✔ Soft delete: deleted_at column on contacts (restore within 30 days)
+  - [x] CSV/XLSX ingestion
+  - [x] Deduplication
+  - [x] Contact status (subscribed, unsubscribed, bounced)
+  - [x] Segmentation filters
+  - [x] Bulk delete
+  - [x] Contact search endpoint (search by email, name, tag)
+  - [x] Tags CRUD API (add/remove/list tags per contact)
+  - [x] Soft delete: deleted_at column on contacts (restore within 30 days)
 
   [FRONTEND]
-  ✔ Contacts list page (table with search, filter, pagination)
-  ✔ Import contacts modal (CSV/XLSX drag & drop)
-  ✔ Contact status badges (subscribed / unsubscribed / bounced)
-  ✔ Segment builder UI (filter by field, value)
-  ✔ Bulk action buttons (delete selected)
-  ✔ Contact detail page (see individual contact activity)
-  ✔ Export contacts to CSV button
-  ✔ Tags UI (add/remove tags on contacts)
-  ✔ Suppression list page (view bounced/spam contacts)
+  - [x] Contacts list page (table with search, filter, pagination)
+  - [x] Import contacts modal (CSV/XLSX drag & drop)
+  - [x] Contact status badges (subscribed / unsubscribed / bounced)
+  - [x] Segment builder UI (filter by field, value)
+  - [x] Bulk action buttons (delete selected)
+  - [x] Contact detail page (see individual contact activity)
+  - [x] Export contacts to CSV button
+  - [x] Tags UI (add/remove tags on contacts)
+  - [x] Suppression list page (view bounced/spam contacts)
 
 ─────────────────────────────────────────
 🏗 PHASE 3 — Template Engine ⚠ STABILIZED
   [BACKEND]
-  ✔ Template CRUD
-  ✔ Category
-  ✔ Store compiled HTML
+  - [x] Template CRUD
+  - [x] Category
+  - [x] Store compiled HTML
       → SECURITY: HTML must be aggressively sanitized (bleach on backend, DOMPurify on frontend)
       → Disallow <script> tags, restrict external JS, limit inline event handlers
       → Prevents critical XSS attacks via malicious templates
-  ✔ Preset templates (35 presets)
-  ☐ Template versioning (save history)
-  ☐ Plain text auto-generator (sync from HTML for spam filters)
+  - [x] Preset templates (35 presets)
+  - [ ] Template versioning (save history)
+  - [ ] Plain text auto-generator (sync from HTML for spam filters)
       → Store in DB, allow manual override via frontend UI.
-  ☐ Public "View Online" link (render template in browser without login)
+  - [ ] Public "View Online" link (render template in browser without login)
 
   [FRONTEND]
-  ✔ Templates list page (grid of template cards with thumbnails)
-  ✔ Create template (pick preset)
-  ☐ Advanced Template Editor — GrapesJS builder (drag & drop)
+  - [x] Templates list page (grid of template cards with thumbnails)
+  - [x] Create template (pick preset)
+  - [ ] Advanced Template Editor — GrapesJS builder (drag & drop)
       → Store raw HTML directly in the DB.
       → Use grapesjs-preset-newsletter for Outlook-safe table layouts.
       → Intercept image uploads and save to Supabase Storage bucket.
-  ☐ Plain Text (Auto-generated) | Plain Text (Custom) tabs
+  - [ ] Plain Text (Auto-generated) | Plain Text (Custom) tabs
       → Lets users override generated plain text if formatting breaks.
-  ☐ Send test email button (enter email address → receive real email)
-  ☐ Duplicate template button
-  ☐ Category filter tabs on template list
-  ☐ Version history panel (see and restore older versions)
-  ☐ Dynamic placeholder guide (show list of {{merge_tags}} user can use)
+  - [ ] Send test email button (enter email address → receive real email)
+  - [ ] Duplicate template button
+  - [ ] Category filter tabs on template list
+  - [ ] Version history panel (see and restore older versions)
+  - [ ] Dynamic placeholder guide (show list of {{merge_tags}} user can use)
   NOTE: A/B testing on templates → Phase 10
         AI copy assistant → Phase 10
         Global shared components → Phase 8
@@ -231,244 +248,272 @@ Each phase has TWO parts:
 ─────────────────────────────────────────
 🏗 PHASE 4 — Campaign Orchestration ✅ DONE
   [BACKEND]
-  ✔ Campaign CRUD
-  ✔ Snapshot HTML + recipients
-  ✔ Insert email_tasks
-  ✔ Spintax + merge tags
-  ☐ Scheduled sending (cron trigger at scheduled_at)
-  ☐ Pause/resume campaign
-  ☐ Cancel campaign mid-send
-  ☐ Resend to unopened contacts
+  - [x] Campaign CRUD
+  - [x] Snapshot HTML + recipients
+  - [x] Insert email_tasks
+  - [x] Spintax + merge tags
+  - [ ] Scheduled sending (cron trigger at scheduled_at)
+  - [ ] Pause/resume campaign
+  - [ ] Cancel campaign mid-send
+  - [ ] Resend to unopened contacts
 
   [FRONTEND]
-  ✔ Campaigns list page (status badges, stats)
-  ✔ Create campaign form (name, subject, template, audience)
-  ✔ Campaign detail page (basic)
-  ☐ Campaign creation wizard (step-by-step: content → audience → schedule → review)
-  ☐ Pre-send checklist popup (before "Send" button works):
+  - [x] Campaigns list page (status badges, stats)
+  - [x] Create campaign form (name, subject, template, audience)
+  - [x] Campaign detail page (basic)
+  - [ ] Campaign creation wizard (step-by-step: content → audience → schedule → review)
+  - [ ] Pre-send checklist popup (before "Send" button works):
       → Template has unsubscribe link ✅/❌
       → Domain is verified ✅/❌
       → Audience has > 0 contacts ✅/❌
       → Bounce rate is acceptable ✅/❌
-  ☐ Schedule picker (date/time input for scheduled send)
-  ☐ Schedule picker (date/time input for scheduled send)
-  ☐ Pause button / Cancel button on in-progress campaign
-  ☐ Send test email modal (enter email address, preview)
+  - [ ] Schedule picker (date/time input for scheduled send)
+  - [ ] Schedule picker (date/time input for scheduled send)
+  - [ ] Pause button / Cancel button on in-progress campaign
+  - [ ] Send test email modal (enter email address, preview)
 
 ─────────────────────────────────────────
 🏗 PHASE 5 — Delivery Engine ✅ DONE
   [BACKEND]
-  ✔ Worker loop (RabbitMQ consumer)
-  ✔ SMTP send via Mailtrap/SES
-  ✔ Retry + dead-letter queue (nack on failure)
-  ✔ Unsubscribe link injected automatically into every email (HMAC-signed token)
-  ✔ Physical business address in email footer (CAN-SPAM compliant)
-  ✔ Hard bounce → auto-mark contact as "bounced" (POST /webhooks/bounce + /webhooks/ses)
-  ✔ Spam complaint → auto-mark contact as "unsubscribed" (POST /webhooks/spam + /webhooks/ses)
-  ✔ Daily send limit enforcement (per-tenant, resets at midnight, 429 on breach)
-  ✔ Suppressed contacts (bounced/unsubscribed) excluded from all future campaigns automatically
+  - [x] Worker loop (RabbitMQ consumer)
+  - [x] SMTP send via Mailtrap/SES
+  - [x] Dynamic SMTP TLS Handshake based on active Port (Robust 587 support)
+  - [x] Retry + dead-letter queue (nack on failure)
+  - [x] Unsubscribe link injected automatically into every email (HMAC-signed token)
+  - [x] Physical business address in email footer (CAN-SPAM compliant)
+  - [x] Hard bounce → auto-mark contact as "bounced" (POST /webhooks/bounce + /webhooks/ses)
+  - [x] Spam complaint → auto-mark contact as "unsubscribed" (POST /webhooks/spam + /webhooks/ses)
+  - [x] Daily send limit enforcement (per-tenant, resets at midnight, 429 on breach)
+  - [x] Suppressed contacts (bounced/unsubscribed) excluded from all future campaigns automatically
 
   [FRONTEND]
-  ✔ Unsubscribe landing page (/unsubscribe?status=success)
+  - [x] Unsubscribe landing page (/unsubscribe?status=success)
       → Clean glassmorphism page: "You have been unsubscribed."
-  ✔ Re-subscribe option on unsubscribe page (email input → POST /resubscribe)
+  - [x] Re-subscribe option on unsubscribe page (email input → POST /resubscribe)
 
   [MOVED TO PHASE 7 — Advanced Delivery]
-  ☐ Email Sending Reputation Isolation:
+  - [ ] Email Sending Reputation Isolation:
       → Track per-tenant reputation score (bounce rate, spam rate)
       → Auto-suspend tenant if bounce_rate > 5% or spam_rate > 0.3%
       → Move risky tenants to lower priority delivery queue
-  ☐ List Hygiene Automation:
+  - [ ] List Hygiene Automation:
       → Auto-suppress emails that bounced 3x in 30 days
       → Re-engagement campaign trigger for 6-month inactive contacts
       → Sunset policy: Mark as 'inactive' after 12 months
-  ☐ Warm-up throttle for new tenants:
+  - [ ] Warm-up throttle for new tenants:
       → First 3 days: limit to 50 emails/hour
       → Day 4–7: 200 emails/hour → Day 8+: full speed
-  ☐ Campaign throttle status display in UI ("Sending at 50/hr — 94 hours remaining")
+  - [ ] Campaign throttle status display in UI ("Sending at 50/hr — 94 hours remaining")
 
 ─────────────────────────────────────────
 🏗 PHASE 6 — Observability & Analytics
   [BACKEND]
-  ☐ Open tracking pixel endpoint
-  ☐ Click tracking redirect endpoint
-  ☐ Webhook ingestion (Gmail/Outlook bounce/spam reports)
-  ☐ Stats aggregation (sent, opens, clicks, bounces per campaign)
-  ☐ Contact activity log (what each person opened/clicked)
-  ☐ Bot/Scanner detection:
+  - [ ] Open tracking pixel endpoint
+  - [ ] Click tracking redirect endpoint
+  - [ ] Webhook ingestion (Gmail/Outlook bounce/spam reports)
+  - [ ] Stats aggregation (sent, opens, clicks, bounces per campaign)
+  - [ ] Contact activity log (what each person opened/clicked)
+  - [ ] Bot/Scanner detection:
       → If click happens < 1 second after open → mark as bot, exclude from stats
       → Prevents inflated click stats from email security scanners (common in enterprise)
       → Store: opened_at, clicked_at, is_bot flag
 
   [FRONTEND]
-  ☐ Campaign detail page (full analytics):
+  - [ ] Campaign detail page (full analytics):
       → Sent / Delivered / Opened / Clicked / Bounced / Unsubscribed
       → Charts (open rate over time, top clicked links)
       → Recipient list (who opened, who clicked, who bounced)
-  ☐ Dashboard homepage widgets:
+  - [ ] Dashboard homepage widgets:
       → Recent campaign performance summary
       → Sender Health card:
           - Bounce rate (🟢 < 2%  🟡 2-5%  🔴 > 5%)
           - Spam rate   (🟢 < 0.1% 🟡 0.1-0.5% 🔴 > 0.5%)
           - Open rate   (🟢 > 20%  🟡 10-20%  🔴 < 10%)
           - Domain status (verified ✅ / not verified ❌)
-  ☐ Contacts activity tab (per contact: opened X campaigns, clicked Y)
-  ☐ Export report to CSV button
+  - [ ] Contacts activity tab (per contact: opened X campaigns, clicked Y)
+  - [ ] Export report to CSV button
 
 ─────────────────────────────────────────
 🏗 PHASE 7 — Plan Enforcement
   [BACKEND]
-  ☐ Plans table (free/starter/pro/enterprise with limits)
+  - [ ] Plans table (free/starter/pro/enterprise with limits)
       → Free tier limits: Max 500 contacts, 1,000 emails/month, no custom domain (forces upgrade)
-  ☐ Monthly email sent counter per tenant
-  ☐ Block sends when quota exceeded
-  ☐ Contact count limit enforcement
-  ☐ 80% quota trigger (notification)
-  ☐ Worker-triggered email notifications:
+  - [ ] Monthly email sent counter per tenant
+  - [ ] Block sends when quota exceeded
+  - [ ] Contact count limit enforcement
+  - [ ] 80% quota trigger (notification)
+  - [ ] Worker-triggered email notifications (Sent via Centralized System Emailer):
       → Campaign completed → email tenant with stats summary
       → 80% quota reached → email tenant quota warning
       → Monthly 1st → email tenant usage summary
       → Bounce rate > 2% → email tenant list-cleaning alert
 
   [FRONTEND]
-  ☐ Plan & Usage page:
+  - [ ] Plan & Usage page:
       → Current plan badge (Free / Starter / Pro)
       → Emails used this month: 8,400 / 25,000 (progress bar)
       → Contacts: 3,200 / 10,000 (progress bar)
       → "Upgrade Plan" button → shows plan comparison table
-  ☐ Upgrade plan modal (shows plan comparison, "Contact Us to Upgrade")
-  ☐ In-app banner when 80% quota reached:
+  - [ ] Upgrade plan modal (shows plan comparison, "Contact Us to Upgrade")
+  - [ ] In-app banner when 80% quota reached:
       "⚠️ You've used 80% of your monthly emails. Upgrade to continue."
-  ☐ Blocked send page when quota maxed:
+  - [ ] Blocked send page when quota maxed:
       "❌ Monthly limit reached. Your campaign cannot be sent."
 
 ─────────────────────────────────────────
 🏗 PHASE 7.5 — Infrastructure ✅ PARTIALLY DONE
   [BACKEND / DEVOPS]
-  ✔ Docker (Dockerfiles for API, worker, client)
-  ✔ docker-compose.yml
-  ✔ Nginx config
-  ☐ SSL/HTTPS (Let's Encrypt guide in docs)
-  ☐ CI/CD pipeline (GitHub Actions)
-  ☐ Load & Spam Testing Setup:
+  - [x] Docker (Dockerfiles for API, worker, client)
+  - [x] docker-compose.yml
+  - [x] Nginx config
+  - [ ] SSL/HTTPS (Let's Encrypt guide in docs)
+  - [ ] CI/CD pipeline (GitHub Actions)
+  - [ ] Load & Spam Testing Setup:
       → k6 script for contact import (10k rows) and campaign creation
       → Integration with Mail-Tester.com API for pre-send spam score checks
       → Postman/Insomnia collection for all major API endpoints
-  ☐ Security Headers & CSP:
+  - [ ] Security Headers & CSP:
       → Add Content-Security-Policy headers for all Next.js pages
       → Strict CSP for editor (mitigate inline style risks)
-  ☐ API Rate Limiting (Strict, Per-Tenant, Per-Endpoint):
+  - [ ] API Rate Limiting (Strict, Per-Tenant, Per-Endpoint):
       → Must include burst protection and use tenant_id (not just IP)
       → Import contacts: max 5/min | Campaign create: 10/min | Test email: 20/hour
       → Essential to prevent malicious tenants from overloading DB and Worker
-  ☐ Background Job Status Table:
+  - [ ] Background Job Status Table:
       → Generic `jobs` table: id, tenant_id, type, status, progress_percent, error_message
       → Used for CSV import, GDPR export, Campaign send compilation
       → Frontend polls this table so users actually see a progress bar instead of waiting blindly
-  ☐ Worker concurrency safety:
+  - [ ] Worker concurrency safety:
       → Add locked_by (UUID) column to email_tasks
       → Worker claims task by writing its own ID to locked_by
       → Prevents zombie tasks when 2+ workers run in parallel
-  ☐ Idempotency guard:
+  - [ ] Idempotency guard:
       → Add external_msg_id column to email_tasks
       → Store SMTP provider's message ID after first successful send
       → On retry: check external_msg_id exists → skip send → prevent double-email
 
   [FRONTEND]
-  ☐ Settings → SMTP Config page:
+  - [ ] Settings → SMTP Config page:
       → Input fields: SMTP Host, Port, Username, Password
       → "Test Connection" button → shows success/failure
-  ☐ Settings → Domain Verification page:
+  - [ ] Settings → Domain Verification page:
       → Enter sending domain
       → Show DNS records to add (SPF/DKIM)
       → "Verify" button → checks DNS
 
   [HEALTH CHECKS]
-  ☐ GET /health endpoint on FastAPI:
+  - [ ] GET /health endpoint on FastAPI:
       → Returns: { status: "ok", db: "connected", worker: "running" }
       → Returns 200 OK if healthy, 503 if any service is down
       → Company IT team monitors this for uptime alerts
-  ☐ GET /health endpoint on Worker (separate HTTP server):
+  - [ ] GET /health endpoint on Worker (separate HTTP server):
       → Returns: { status: "ok", queue_depth: 142, last_processed: "2s ago" }
   → Both endpoints used by docker-compose healthcheck + external monitors
 
 ─────────────────────────────────────────
-🏗 PHASE 8 — Admin Panel (Company Dashboard)
-  [BACKEND]
-  ☐ Super admin role + separate auth
-  ☐ Get all tenants + usage API
-  ☐ Change tenant plan API
-  ☐ Suspend/reactivate tenant API
-  ☐ Global Kill Switch API:
-      → Single endpoint: POST /admin/kill-switch
-      → Sets a global flag in DB: is_sending_paused = true
-      → Worker checks this flag before every send → if true, stops immediately
-      → USE CASE: Tenant sending spam → admin freezes entire engine in 1 click
-      → Per-tenant kill switch too: suspend one tenant without stopping others
+🏗 PHASE 8 — Account Settings & Administration
+  [PHASE 8A: SETTINGS CORE]
+  - [x] Settings landing page (/settings) with navigation cards
+  - [x] Profile page (edit name, timezone)
+  - [x] Organization page (company name, CAN-SPAM physical address)
+  - [ ] Team Management (invite users to workspace — Phase 11)
 
-  [FRONTEND]
-  ☐ Admin login page (separate from tenant login)
-  ☐ Admin dashboard:
-      → Total tenants, active tenants, suspended tenants
-      → Total emails sent platform-wide this month
-      → Revenue overview (manual, based on plans)
-  ☐ Tenant list table (name, plan, usage, status)
-  ☐ Tenant detail page (change plan, view usage, suspend)
-  ☐ SMTP health monitor page
-  ☐ Global Kill Switch button (big red button, requires confirmation):
-      → "⛔ Stop All Email Sending" → ConfirmModal → activates kill switch
-      → Status shows: "🔴 Sending Paused" with timestamp and "Resume" button
+  [PHASE 8B: SECURITY & COMPLIANCE]
+  - [x] GDPR Right-to-Erase (anonymize contact PII)
+  - [x] Data Export button (CSV export of all contacts)
+  - [x] Compliance checklist page (/settings/compliance)
+
+  [PHASE 8C: DEVELOPER TOOLS & DELIVERABILITY]
+  - [x] API Keys page (generate, view, revoke keys — SHA-256 hashed)
+  - [x] Custom sending domain setup UI (SPF/DKIM/DMARC records)
+  - [x] Sender Identity Verification (Anti-Spoofing OTP Modal & DB Restrictions)
+      → OTP Emails MUST be sent via Centralized System Emailer (Gmail SMTP)
+  - [x] Backend: POST /senders/verify-request, POST /senders/verify-submit, GET /senders
+  - [ ] Webhooks config page (URL + event subscriptions — Phase 11)
+
+  [PHASE 8D: SUPER-ADMIN PANEL — Future]
+  - [ ] Admin login page (separate from tenant login)
+  - [ ] Admin dashboard (total tenants, emails sent, revenue)
+  - [ ] Tenant list table (name, plan, usage, status)
+  - [ ] Global Kill Switch button (big red button, requires confirmation)
 
 ─────────────────────────────────────────
 🏗 PHASE 9 — Payments (Stripe/Razorpay)
   [BACKEND]
-  ☐ Stripe integration
-  ☐ Webhook from Stripe → update plan in DB
-  ☐ Invoice generation
+  - [ ] Stripe integration
+  - [ ] Webhook from Stripe → update plan in DB
+  - [ ] Invoice generation
 
   [FRONTEND]
-  ☐ Pricing page (plan comparison table with "Subscribe" button)
-  ☐ Checkout flow (Stripe hosted page or embedded)
-  ☐ Billing history page (past invoices, download PDF)
-  ☐ Payment failed banner ("Your payment failed. Update card to continue.")
+  - [ ] Pricing page (plan comparison table with "Subscribe" button)
+  - [ ] Checkout flow (Stripe hosted page or embedded)
+  - [ ] Billing history page (past invoices, download PDF)
+  - [ ] Payment failed banner ("Your payment failed. Update card to continue.")
 
 ─────────────────────────────────────────
 🏗 PHASE 10 — Advanced Campaigns
   [BACKEND]
-  ☐ A/B test variant storage
-  ☐ Winner selection logic (by open rate after 4 hours)
-  ☐ Drip campaign sequence engine
-  ☐ Automation trigger system
+  - [ ] A/B test variant storage
+  - [ ] Winner selection logic (by open rate after 4 hours)
+  - [ ] Drip campaign sequence engine
+  - [ ] Automation trigger system
 
   [FRONTEND]
-  ☐ A/B test creation UI (add Subject Line B, set split ratio)
-  ☐ A/B test results panel (variant A vs B comparison)
-  ☐ Drip campaign builder (sequence of emails + delays)
-  ☐ Automation trigger builder (e.g., "Send email when contact joins list")
+  - [ ] A/B test creation UI (add Subject Line B, set split ratio)
+  - [ ] A/B test results panel (variant A vs B comparison)
+  - [ ] Drip campaign builder (sequence of emails + delays)
+  - [ ] Automation trigger builder (e.g., "Send email when contact joins list")
 
 ─────────────────────────────────────────
 🏗 PHASE 11 — API & Integrations
   [BACKEND]
-  ☐ API key management
-  ☐ Transactional send API (/v1/send)
-  ☐ Webhook output (notify tenant on open/click)
+  - [ ] API key management
+  - [ ] Transactional send API (/v1/send)
+  - [ ] Webhook output (notify tenant on open/click)
 
   [FRONTEND]
-  ☐ API Keys page (generate, view, revoke keys)
-  ☐ Webhooks config page (enter URL, select events)
-  ☐ Developer docs page (embedded docs or link)
+  - [ ] API Keys page (generate, view, revoke keys)
+  - [ ] Webhooks config page (enter URL, select events)
+  - [ ] Developer docs page (embedded docs or link)
 
 ─────────────────────────────────────────
-🏗 PHASE 12 — Scale (After Handover)
+🏗 PHASE 12 — Enterprise Domain Auto-Discovery (JIT Provisioning)
+  WHY: Reduce onboarding friction for large organizations by allowing 
+       employees to automatically request access to their corporate workspace based 
+       on their email domain, without compromising email infrastructure security.
+
+  [BACKEND & SECURITY ARCHITECTURE]
+  - [ ] PDEP Filter (Public/Disposable Email Provider)
+      → Block @gmail.com, @yahoo.com from triggering JIT discovery logic.
+  - [ ] Verification-Before-Disclosure (VBD)
+      → Force a 6-digit OTP verification BEFORE querying if the workspace exists.
+  - [ ] Tenant ID Obfuscation
+      → Mask real workspace UUIDs in API responses using cryptographic salts (Hashids).
+  - [ ] Admin Flood Protection (Rate Limiting)
+      → Batch notifications to prevent IT denial-of-service from mass signups.
+  - [ ] Database Schema Additions (Supabase)
+      → workspace_domains: Lookup index mapping domains to tenants.
+      → join_requests: Secure waiting area blocking entry into 'members' until approved.
+
+  [FRONTEND]
+  - [ ] JIT Onboarding Intercept Screen
+      → Detects verified domain → Prompts OTP → Shows "Request to Join Team" CTA.
+  - [ ] Employee 'Waiting Room' Dashboard
+      → Blank security state while awaiting admin approval (prevents data leaks).
+  - [ ] IT Admin 'Governance' Portal
+      → Table of pending join requests with Approve/Reject/Blacklist actions.
+
+─────────────────────────────────────────
+🏗 PHASE 13 — Scale (After Handover)
   [BACKEND]
-  ☐ Redis queue (replace DB polling)
-  ☐ IP warmup scheduler (auto-increase limits over 30 days)
-  ☐ Blacklist monitoring (check MXToolbox daily via cron)
-  ☐ Bot filtering (fake opens from email security scanners)
-  ☐ Per-tenant custom sending domain backend (DKIM key generation)
+  - [ ] Redis queue (replace DB polling)
+  - [ ] IP warmup scheduler (auto-increase limits over 30 days)
+  - [ ] Blacklist monitoring (check MXToolbox daily via cron)
+  - [ ] Bot filtering (fake opens from email security scanners)
+  - [ ] Per-tenant custom sending domain backend (DKIM key generation)
 
   [MICROSERVICES MIGRATION — When team > 5 developers]
-  ☐ Break monolith into independent services:
+  - [ ] Break monolith into independent services:
       auth-service         → Only handles login, JWT, tenants
       contacts-service     → Only handles contacts, segments, tags
       template-service     → Only handles templates, editor, previews
@@ -476,18 +521,20 @@ Each phase has TWO parts:
       delivery-service     → Only handles SMTP worker, retries
       analytics-service    → Only handles open/click tracking, reports
       notification-service → Only sends system emails to tenants
-  ☐ API Gateway (Nginx/Kong) → single entry point routing to each service
-  ☐ Each service has its own Docker container
-  ☐ Services communicate via REST or message queue (RabbitMQ/Kafka)
+  - [ ] API Gateway (Nginx/Kong) → single entry point routing to each service
+  - [ ] Each service has its own Docker container
+  - [ ] Services communicate via REST or message queue (RabbitMQ/Kafka)
   WHY: If analytics crashes → rest of app still works.
        If delivery is slow → scale only that service, not the entire app.
   NOTE: Do NOT do this before Phase 12. Current monolith is perfectly fine
         for up to ~100k emails/day and a small team.
 
   [FRONTEND]
-  ☐ Custom domain setup wizard (tenant enters domain → gets DNS records → verifies)
-  ☐ IP warmup status page (shows daily send limit and progression)
-  ☐ Platform health dashboard (admin sees Redis queue depth, worker status)
+  - [ ] Custom domain setup wizard (tenant enters domain → gets DNS records → verifies)
+  - [ ] IP warmup status page (shows daily send limit and progression)
+  - [ ] Platform health dashboard (admin sees Redis queue depth, worker status)
+
+
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -505,8 +552,9 @@ IN-APP NOTIFICATIONS (toast / banner in UI):
   ✅ Domain verified successfully
   ❌ SMTP connection failed — check your settings
 
-EMAIL NOTIFICATIONS (sent to tenant's email):
+EMAIL NOTIFICATIONS (sent via Centralized System Emailer to tenant's email):
   ✉ Welcome email (after onboarding complete)
+  ✉ Sender Identity OTP: "Your code to verify sales@acme.com is 123456"
   ✉ Campaign completed: "Your campaign 'Black Friday' is done.
      Sent: 10,000 | Opened: 2,400 (24%) | Clicked: 540 (5.4%)"
   ⚠ "You've used 80% of your monthly email limit"
@@ -541,17 +589,18 @@ Document for company to pay & build later:
   Phase 9    → Stripe payments
   Phase 10   → A/B testing + drip campaigns
   Phase 11   → API & integrations
-  Phase 12   → Redis + scale
+  Phase 12   → Enterprise JIT Onboarding
+  Phase 13   → Redis + scale
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  DATABASE INDEX STRATEGY (CRITICAL FOR SCALE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Without these indexes, the platform will slow down dramatically at scale:
-  ☐ contacts(tenant_id, email) → fast deduplication during CSV import
-  ☐ email_tasks(status, scheduled_at) → ultra-fast worker polling
-  ☐ campaigns(tenant_id, status) → fast dashboard loading
-  ☐ audit_logs(tenant_id, timestamp) → fast log retrieval for GDPR
-  ☐ email_events(campaign_id, contact_id) → fast analytics aggregation
+  - [ ] contacts(tenant_id, email) → fast deduplication during CSV import
+  - [ ] email_tasks(status, scheduled_at) → ultra-fast worker polling
+  - [ ] campaigns(tenant_id, status) → fast dashboard loading
+  - [ ] audit_logs(tenant_id, timestamp) → fast log retrieval for GDPR
+  - [ ] email_events(campaign_id, contact_id) → fast analytics aggregation
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  HANDOVER RUNBOOKS (Docs for the company)
@@ -580,13 +629,13 @@ RUNBOOK 2: "How to upgrade from DB Queue to Redis (Phase 12)"
   CRITICAL: external_msg_id column prevents double-sends during migration
 
 RUNBOOK 3: "Monthly operations checklist for the company"
-  ☐ Check bounce rate (keep below 2%)
-  ☐ Check spam complaint rate (keep below 0.1%)
-  ☐ Review email_tasks_dead table (failed emails) — investigate patterns
-  ☐ Check mxtoolbox.com/blacklists for IP reputation
-  ☐ Review audit_logs for any unusual mass deletes or sends
-  ☐ Review tenant plan usage — upgrade tenants hitting limits consistently
-  ☐ Check AWS SES sending limits in AWS Console
+  - [ ] Check bounce rate (keep below 2%)
+  - [ ] Check spam complaint rate (keep below 0.1%)
+  - [ ] Review email_tasks_dead table (failed emails) — investigate patterns
+  - [ ] Check mxtoolbox.com/blacklists for IP reputation
+  - [ ] Review audit_logs for any unusual mass deletes or sends
+  - [ ] Review tenant plan usage — upgrade tenants hitting limits consistently
+  - [ ] Check AWS SES sending limits in AWS Console
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

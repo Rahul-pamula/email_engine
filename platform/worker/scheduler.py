@@ -81,7 +81,6 @@ async def dispatch_campaign(db: Client, campaign: dict):
     # 2. Mark as sending in DB
     db.table("campaigns").update({
         "status": "sending",
-        "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", campaign_id).execute()
 
     # 3. Set Redis status so worker will process (best-effort)
@@ -95,9 +94,17 @@ async def dispatch_campaign(db: Client, campaign: dict):
     audience_target = campaign.get("audience_target") or "all"
     query = db.table("contacts").select("id, email, first_name, last_name").eq("tenant_id", tenant_id)
 
-    if audience_target.startswith("batch:"):
-        batch_id = audience_target.split("batch:", 1)[1]
-        query = query.eq("import_batch_id", batch_id)
+    if audience_target != "all":
+        if audience_target.startswith("batch:"):
+            batch_id = audience_target.split("batch:", 1)[1]
+            query = query.eq("import_batch_id", batch_id)
+        else:
+            list_members = db.table("list_members").select("contact_id").eq("list_id", audience_target).execute()
+            if list_members.data:
+                contact_ids = [m["contact_id"] for m in list_members.data]
+                query = query.in_("id", contact_ids)
+            else:
+                query = query.eq("id", "00000000-0000-0000-0000-000000000000")
 
     contacts_res = query.execute()
     contacts: List[Dict] = contacts_res.data or []

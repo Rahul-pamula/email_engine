@@ -64,14 +64,24 @@ async def get_campaign_analytics(
 
     events = events_res.data or []
 
-    # Aggregate
-    opens        = [e for e in events if e["event_type"] == "open"]
-    clicks       = [e for e in events if e["event_type"] == "click"]
-    bounces      = [e for e in events if e["event_type"] == "bounce"]
-    unsubs       = [e for e in events if e["event_type"] == "unsubscribe"]
+    # Deduplicate raw events: keep only the first event per (dispatch_id, event_type)
+    # This prevents double-counting if the same pixel fires twice (retry, proxy + user, etc.)
+    seen = set()
+    deduped_events = []
+    for e in events:
+        key = (e["dispatch_id"], e["event_type"])
+        if key not in seen:
+            seen.add(key)
+            deduped_events.append(e)
 
-    unique_opens  = len(set(e["contact_id"] for e in opens))
-    unique_clicks = len(set(e["contact_id"] for e in clicks))
+    # Aggregate (using deduped events only)
+    opens        = [e for e in deduped_events if e["event_type"] == "open"]
+    clicks       = [e for e in deduped_events if e["event_type"] == "click"]
+    bounces      = [e for e in deduped_events if e["event_type"] == "bounce"]
+    unsubs       = [e for e in deduped_events if e["event_type"] == "unsubscribe"]
+
+    unique_opens  = len(set(e["contact_id"] for e in opens if e["contact_id"]))
+    unique_clicks = len(set(e["contact_id"] for e in clicks if e["contact_id"]))
 
     def rate(num, denom):
         return round((num / denom) * 100, 2) if denom > 0 else 0.0

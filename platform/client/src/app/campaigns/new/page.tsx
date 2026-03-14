@@ -3,8 +3,14 @@
 import CampaignWizard from "@/components/CampaignWizard";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function NewCampaignPage() {
+function CampaignPageContent() {
+    const searchParams = useSearchParams();
+    const editId = searchParams.get("edit");
+    const draftId = searchParams.get("draft_id");
+
     return (
         <div className="max-w-5xl mx-auto px-4 py-8">
             {/* Header */}
@@ -16,13 +22,25 @@ export default function NewCampaignPage() {
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Create New Campaign</h1>
-                    <p className="text-slate-500 text-sm">Follow the steps to design and launch your email.</p>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        {editId ? "Edit Campaign" : "Create New Campaign"}
+                    </h1>
+                    <p className="text-slate-500 text-sm">
+                        {editId ? "Update your campaign details." : "Follow the steps to design and launch your email."}
+                    </p>
                 </div>
             </div>
 
             {/* Wizard Container */}
-            <CampaignWizard />
+            <CampaignWizard editCampaignId={editId} draftCampaignId={draftId} />
         </div>
+    );
+}
+
+export default function NewCampaignPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '60px', textAlign: 'center', color: '#71717A' }}>Loading...</div>}>
+            <CampaignPageContent />
+        </Suspense>
     );
 }

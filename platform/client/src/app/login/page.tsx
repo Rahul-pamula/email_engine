@@ -4,16 +4,19 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui';
 
 export default function LoginPage() {
     const { login } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+
+    const redirectPath = searchParams.get('redirect') || '/dashboard';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,7 +31,7 @@ export default function LoginPage() {
 
         try {
             await login(email, password);
-            router.push('/dashboard');
+            router.push(redirectPath);
         } catch (err: any) {
             setError(err.message || 'Invalid credentials');
             setIsSubmitting(false);
@@ -192,7 +195,7 @@ export default function LoginPage() {
 
                     <p className="text-center text-sm text-[var(--text-muted)]">
                         Don't have an account?{' '}
-                        <Link href="/signup" className="font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors">
+                        <Link href={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect') as string)}` : ''}`} className="font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors">
                             Sign up for free
                         </Link>
                     </p>

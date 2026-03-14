@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
     ArrowLeft, Copy, Settings, MoreHorizontal,
     Mail, Users, MousePointer, AlertTriangle, RotateCcw,
-    Send, Eye, Loader2, TrendingUp, Pause, Play, XOctagon
+    Send, Eye, Loader2, TrendingUp, Pause, Play, XOctagon, X
 } from "lucide-react";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -28,6 +28,8 @@ export default function CampaignDetailsPage() {
     const [dispatch, setDispatch] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const router = useRouter();
 
     const loadCampaign = async () => {
         if (!token || !id) return;
@@ -53,7 +55,39 @@ export default function CampaignDetailsPage() {
         finally { setActionLoading(null); }
     };
 
-    useEffect(() => { loadCampaign(); }, [token, id]);
+    const handleDuplicate = async () => {
+        if (!token || !campaign) return;
+        setActionLoading('duplicate');
+        try {
+            const res = await fetch(`${API_BASE}/campaigns/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    name: `${campaign.name} (Copy)`,
+                    subject: campaign.subject,
+                    body_html: campaign.body_html,
+                    status: 'draft',
+                })
+            });
+            if (res.ok) {
+                const newCamp = await res.json();
+                router.push(`/campaigns/new?edit=${newCamp.id}`);
+            }
+        } catch (e) { console.error(e); }
+        finally { setActionLoading(null); }
+    };
+
+    useEffect(() => {
+        loadCampaign();
+
+        // Auto-refresh the campaign details every 5 seconds
+        // so dispatch stats and statuses update in real time
+        const interval = setInterval(() => {
+            loadCampaign();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [token, id]);
 
     if (loading) return (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}>
@@ -151,10 +185,14 @@ export default function CampaignDetailsPage() {
                             </button>
                         </>
                     )}
-                    <button style={{ padding: "8px 14px", background: "rgba(24,24,27,0.6)", border: "1px solid rgba(63,63,70,0.4)", borderRadius: "8px", color: "#A1A1AA", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <Copy size={13} /> Duplicate
+                    <button
+                        onClick={handleDuplicate}
+                        disabled={!!actionLoading}
+                        style={{ padding: "8px 14px", background: "rgba(24,24,27,0.6)", border: "1px solid rgba(63,63,70,0.4)", borderRadius: "8px", color: "#A1A1AA", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+                        {actionLoading === 'duplicate' ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Copy size={13} />}
+                        Duplicate
                     </button>
-                    <button className="btn-premium" style={{ fontSize: "13px" }}>
+                    <button onClick={() => setShowPreview(true)} className="btn-premium" style={{ fontSize: "13px" }}>
                         <Eye size={13} style={{ display: "inline", marginRight: "6px" }} />View Preview
                     </button>
                 </div>
@@ -271,8 +309,34 @@ export default function CampaignDetailsPage() {
                         </button>
                     </div>
                 </div>
-
             </div>
+
+            {/* View Preview Modal */}
+            {showPreview && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+                    <div style={{ background: "#18181B", width: "90%", maxWidth: "800px", height: "85vh", borderRadius: "12px", border: "1px solid rgba(63,63,70,0.5)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid rgba(63,63,70,0.4)", background: "rgba(9,9,11,0.5)" }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Eye size={18} color="#8B5CF6" />
+                                <h3 style={{ margin: 0, color: "#FAFAFA", fontSize: "15px", fontWeight: 600 }}>Email Preview</h3>
+                                <span style={{ color: "#71717A", fontSize: "13px", marginLeft: "12px", borderLeft: "1px solid rgba(63,63,70,0.5)", paddingLeft: "12px" }}>
+                                    Subject: <span style={{ color: "#E4E4E7" }}>{campaign.subject}</span>
+                                </span>
+                            </div>
+                            <button onClick={() => setShowPreview(false)} style={{ background: "none", border: "none", color: "#A1A1AA", cursor: "pointer", padding: "4px" }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div style={{ flex: 1, background: "#FFFFFF", overflow: "hidden" }}>
+                            <iframe
+                                srcDoc={campaign.body_html || "<p>No content</p>"}
+                                style={{ width: "100%", height: "100%", border: "none" }}
+                                title="Email Preview"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     Play,
     Pause,
@@ -14,7 +15,9 @@ import {
     PlayCircle,
     StopCircle,
     Send,
-    Megaphone
+    Megaphone,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -56,31 +59,76 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function CampaignsPage() {
     const { token } = useAuth();
+    const router = useRouter();
     const [campaigns, setCampaigns] = useState<any[]>([]);
+
+    // Pagination states
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [total, setTotal] = useState(0);
+
+    // Browser local multi-draft state
+    const [localDrafts, setLocalDrafts] = useState<any[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [search, setSearch] = useState("");
 
+    const fetchCampaigns = async (isBackground = false) => {
+        if (!token) return;
+        try {
+            const params = new URLSearchParams({ page: String(page), limit: '15' });
+            const res = await fetch(`http://127.0.0.1:8000/campaigns/?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Failed to fetch campaigns");
+            const json = await res.json();
+            setCampaigns(json.campaigns || []);
+            setTotal(json.meta?.total || 0);
+            setTotalPages(json.meta?.total_pages || 0);
+            setError(""); // Clear error if recovered
+        } catch (err) {
+            if (!isBackground) setError("Failed to load campaigns.");
+        } finally {
+            if (!isBackground) setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchCampaigns = async () => {
-            if (!token) return;
-            try {
-                const res = await fetch('http://127.0.0.1:8000/campaigns/', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error("Failed to fetch campaigns");
-                const json = await res.json();
-                setCampaigns(json.campaigns || []);
-            } catch (err) {
-                setError("Failed to load campaigns.");
-            } finally {
-                setLoading(false);
+        // Load browser local multi-drafts
+        try {
+            const raw = localStorage.getItem('campaign_local_sessions');
+            if (raw) {
+                const sessions = JSON.parse(raw);
+                const drafts = [];
+                for (const [id, session] of Object.entries(sessions)) {
+                    if (session && (session as any).data && ((session as any).data.name || (session as any).data.subject)) {
+                        drafts.push({ id, ...(session as any).data, updatedAt: (session as any).updatedAt });
+                    }
+                }
+                // Sort by updatedAt descending
+                drafts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                setLocalDrafts(drafts);
             }
-        };
-        fetchCampaigns();
-    }, [token]);
+        } catch { }
+
+        fetchCampaigns(false);
+
+        // Auto-refresh the campaigns list every 5 seconds 
+        // so the "Sending" status updates to "Sent" automatically
+        const interval = setInterval(() => {
+            fetchCampaigns(true);
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [token, page]); // Re-fetch when page changes
 
     const filtered = campaigns.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+
+    const handleCreateNew = () => {
+        const newId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+        router.push(`/campaigns/new?draft_id=${newId}`);
+    };
 
     const handleAction = async (id: string, action: 'pause' | 'resume' | 'cancel' | 'delete') => {
         try {
@@ -127,14 +175,14 @@ export default function CampaignsPage() {
                         Create and manage your email campaigns
                     </p>
                 </div>
-                <Link
-                    href="/campaigns/new"
+                <button
+                    onClick={handleCreateNew}
                     className="btn-premium"
-                    style={{ textDecoration: 'none', fontSize: '13px' }}
+                    style={{ textDecoration: 'none', fontSize: '13px', cursor: 'pointer', border: 'none' }}
                 >
                     <Plus size={15} />
                     Create Campaign
-                </Link>
+                </button>
             </div>
 
             {/* Toolbar */}
@@ -200,13 +248,13 @@ export default function CampaignsPage() {
                     <p style={{ fontSize: '13px', color: '#71717A', marginBottom: '20px' }}>
                         Create your first campaign and start sending emails.
                     </p>
-                    <Link
-                        href="/campaigns/new"
+                    <button
+                        onClick={handleCreateNew}
                         className="btn-premium"
-                        style={{ textDecoration: 'none', fontSize: '13px', display: 'inline-flex' }}
+                        style={{ textDecoration: 'none', fontSize: '13px', display: 'inline-flex', cursor: 'pointer', border: 'none' }}
                     >
                         <Plus size={14} /> Create Campaign
-                    </Link>
+                    </button>
                 </div>
             )}
 
@@ -232,6 +280,61 @@ export default function CampaignsPage() {
                             </tr>
                         </thead>
                         <tbody>
+                            {localDrafts.map(draft => (
+                                <tr
+                                    key={`localdraft-${draft.id}`}
+                                    style={{
+                                        borderBottom: '1px solid rgba(63, 63, 70, 0.2)',
+                                        transition: 'background 0.15s ease',
+                                        background: 'rgba(59, 130, 246, 0.04)'
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.04)')}
+                                >
+                                    <td style={{ padding: '16px 20px' }}>
+                                        <Link href={`/campaigns/new?action=resume&draft_id=${draft.id}`} style={{ textDecoration: 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <p style={{ fontSize: '14px', fontWeight: 600, color: '#60A5FA', margin: 0 }}>
+                                                    {draft.name || 'Untitled Session'}
+                                                </p>
+                                                <span style={{ fontSize: '10px', fontWeight: 600, background: 'rgba(59,130,246,0.1)', color: '#60A5FA', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.2)', textTransform: 'uppercase' }}>Unsaved Browser Session</span>
+                                            </div>
+                                            <p style={{ fontSize: '12px', color: '#A1A1AA', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>{draft.subject || '—'}</p>
+                                        </Link>
+                                    </td>
+                                    <td style={{ padding: '16px 20px' }}>
+                                        <StatusBadge status="draft" />
+                                    </td>
+                                    <td style={{ padding: '16px 20px', fontSize: '13px', color: '#A1A1AA', textAlign: 'right' }}>
+                                        —
+                                    </td>
+                                    <td style={{ padding: '16px 20px', fontSize: '13px', color: '#71717A', textAlign: 'right' }}>
+                                        Just now
+                                    </td>
+                                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
+                                            <Link href={`/campaigns/new?action=resume&draft_id=${draft.id}`} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '6px', color: '#60A5FA', fontSize: '12px', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                                                Resume
+                                            </Link>
+                                            <button onClick={() => {
+                                                if (window.confirm('Discard this unsaved browser session?')) {
+                                                    try {
+                                                        const raw = localStorage.getItem('campaign_local_sessions');
+                                                        if (raw) {
+                                                            const sessions = JSON.parse(raw);
+                                                            delete sessions[draft.id];
+                                                            localStorage.setItem('campaign_local_sessions', JSON.stringify(sessions));
+                                                            setLocalDrafts(prev => prev.filter(d => d.id !== draft.id));
+                                                        }
+                                                    } catch { }
+                                                }
+                                            }} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#EF4444', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+                                                Discard
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
                             {filtered.map((c, idx) => (
                                 <tr
                                     key={c.id}
@@ -284,9 +387,9 @@ export default function CampaignsPage() {
                                                 </button>
                                             )}
                                             {(c.status === 'draft' || c.status === 'paused') && (
-                                                <button style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(63, 63, 70, 0.4)', borderRadius: '6px', color: '#A1A1AA', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
+                                                <Link href={`/campaigns/new?edit=${c.id}`} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(63, 63, 70, 0.4)', borderRadius: '6px', color: '#A1A1AA', fontSize: '12px', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
                                                     Edit
-                                                </button>
+                                                </Link>
                                             )}
                                             {c.status === 'draft' ? (
                                                 <button onClick={() => window.confirm('Permanently delete this draft?') && handleAction(c.id, 'delete')} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#EF4444', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
@@ -303,6 +406,25 @@ export default function CampaignsPage() {
                             ))}
                         </tbody>
                     </table>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: '16px 20px', borderTop: '1px solid rgba(63, 63, 70, 0.4)', background: 'rgba(9, 9, 11, 0.3)' }}>
+                            <span style={{ fontSize: "13px", color: '#A1A1AA' }}>
+                                Showing {(page - 1) * 15 + 1}–{Math.min(page * 15, total)} of {total} campaigns
+                            </span>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                                    style={{ padding: "6px 14px", fontSize: "13px", fontWeight: 500, color: "white", backgroundColor: "transparent", border: `1px solid rgba(63, 63, 70, 0.6)`, borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", opacity: page <= 1 ? 0.4 : 1 }}>
+                                    <ChevronLeft size={14} /> Prev
+                                </button>
+                                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                                    style={{ padding: "6px 14px", fontSize: "13px", fontWeight: 500, color: "white", backgroundColor: "transparent", border: `1px solid rgba(63, 63, 70, 0.6)`, borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", opacity: page >= totalPages ? 0.4 : 1 }}>
+                                    Next <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </>

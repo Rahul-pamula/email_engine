@@ -146,7 +146,14 @@ def require_active_tenant(
         )
     
     # Check tenant exists and get status
-    tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
+    try:
+        tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
+    except Exception as e:
+        # Catch httpx.ReadError or connection limits and return a 503
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection temporarily unavailable. Please try again."
+        )
     
     if not tenant_result.data:
         raise HTTPException(

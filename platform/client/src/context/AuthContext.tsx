@@ -8,8 +8,9 @@ interface User {
     email: string;
     fullName: string;
     tenantId: string;
-    tenantStatus: 'onboarding' | 'active';
+    tenantStatus: 'onboarding' | 'active' | 'pending_join';
     role: string;
+    onboardingRequired?: boolean;
 }
 
 interface AuthContextType {
@@ -17,10 +18,12 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     token: string | null;
-    login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, tenantName: string, firstName?: string, lastName?: string) => Promise<void>;
+    login: (email: string, password: string, redirectPath?: string) => Promise<void>;
+    signup: (email: string, password: string, tenantName: string, firstName?: string, lastName?: string, redirectPath?: string) => Promise<void>;
     logout: () => void;
     refreshUserStatus: () => Promise<void>;
+    updateUserContext: (updates: Partial<User>) => void;
+    switchWorkspace: (tenantId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setIsAuthenticated(true);
 
                     // Redirect based on tenant status
-                    if (parsedUser.tenantStatus === 'onboarding' && !pathname?.startsWith('/onboarding')) {
+                    if (parsedUser.tenantStatus === 'pending_join' && pathname !== '/waiting-room') {
+                        router.push('/waiting-room');
+                    } else if (parsedUser.tenantStatus === 'onboarding' && !pathname?.startsWith('/onboarding')) {
                         router.push('/onboarding/basic-info');
                     }
                 } catch (e) {
@@ -66,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (isLoading) return;
 
-        const publicRoutes = ['/', '/login', '/signup', '/docs', '/forgot-password', '/contact', '/pricing'];
+        const publicRoutes = ['/', '/login', '/signup', '/docs', '/forgot-password', '/reset-password', '/verify-email', '/waiting-room', '/team/join', '/contact', '/pricing'];
         const isPublicRoute = publicRoutes.includes(pathname || '');
         const isOnboardingRoute = pathname?.startsWith('/onboarding');
 
@@ -94,6 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // If authenticated but in pending_join status, force waiting room
+        if (isAuthenticated && user?.tenantStatus === 'pending_join' && pathname !== '/waiting-room' && !isPublicRoute) {
+            console.log('Redirecting to waiting room (AuthContext)');
+            router.push('/waiting-room');
+            return;
+        }
+
         // If authenticated and active, redirect away from auth pages
         if (isAuthenticated && user?.tenantStatus === 'active' && (pathname === '/login' || pathname === '/signup')) {
             router.push('/dashboard');
@@ -101,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [isLoading, isAuthenticated, pathname, user]); // Removed 'router' to prevent re-render loop
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string, redirectPath?: string) => {
         setIsLoading(true);
 
         try {
@@ -145,10 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsAuthenticated(true);
 
             // Redirect based on tenant status
-            if (data.tenant_status === 'onboarding') {
+            if (data.tenant_status === 'pending_join') {
+                router.push('/waiting-room');
+            } else if (data.tenant_status === 'onboarding') {
                 router.push('/onboarding/workspace');
             } else {
-                router.push('/dashboard');
+                router.push(redirectPath || '/dashboard');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -158,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const signup = async (email: string, password: string, tenantName: string, firstName?: string, lastName?: string) => {
+    const signup = async (email: string, password: string, tenantName: string, firstName?: string, lastName?: string, redirectPath?: string) => {
         setIsLoading(true);
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
@@ -167,9 +181,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({
                     email,
                     password,
-                    tenant_name: tenantName,
-                    first_name: firstName,
-                    last_name: lastName
+                    full_name: `${firstName || ''} ${lastName || ''}`.trim() || email.split('@')[0],
+                    // If tenantName is empty (invite flow), don't create a default workspace
+                    ...(tenantName ? { tenant_name: tenantName } : {})
                 }),
             });
 
@@ -178,8 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 throw new Error(err.detail || 'Signup failed');
             }
 
-            // After successful signup, immediately log them in
-            await login(email, password);
+            // After successful signup, immediately log them in (and redirect appropriately)
+            await login(email, password, redirectPath);
         } catch (error) {
             console.error('Signup error:', error);
             throw error;
@@ -193,9 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('user_data');
         document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
         document.cookie = 'tenant_status=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-        setUser(null);
-        setIsAuthenticated(false);
-        router.push('/login');
+        window.location.href = '/login';
     };
 
     const refreshUserStatus = async () => {
@@ -209,6 +221,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const updateUserContext = (updates: Partial<User>) => {
+        if (!user) return;
+        const updatedUser = { ...user, ...updates };
+        setUser(updatedUser);
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+    };
+
+    const switchWorkspace = async (tenantId: string) => {
+        setIsLoading(true);
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (!token) throw new Error("No token found");
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/switch-workspace`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ tenant_id: tenantId }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to switch workspace');
+            }
+
+            const data = await response.json();
+
+            // Structure matches the data we get on login
+            const userData: User = {
+                userId: data.user_id,
+                tenantId: data.tenant_id,
+                email: user?.email || '', // email doesn't change
+                tenantStatus: data.tenant_status,
+                onboardingRequired: data.onboarding_required,
+                // preserve old data for things like full_name or avatar
+                role: data.role || 'member',
+                fullName: user?.fullName || '',
+            };
+
+            // 1. Update localStorage
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('user_data', JSON.stringify(userData));
+
+            // 2. Update cookies for Next.js middleware
+            document.cookie = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+            document.cookie = `tenant_status=${data.tenant_status}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+
+            // 3. Force a hard reload to clear any cached states in memory and re-render everything
+            window.location.href = '/dashboard';
+            
+        } catch (error) {
+            console.error('Workspace switch error:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
     return (
         <AuthContext.Provider
             value={{
@@ -220,6 +293,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signup,
                 logout,
                 refreshUserStatus,
+                updateUserContext,
+                switchWorkspace,
             }}
         >
             {children}

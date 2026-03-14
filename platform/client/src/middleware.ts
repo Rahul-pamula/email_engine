@@ -8,10 +8,10 @@ export function middleware(request: NextRequest) {
     const token = request.cookies.get('auth_token')?.value;
 
     // Public routes that don't require authentication
-    const publicRoutes = ['/login', '/signup'];
-    const isPublicRoute = publicRoutes.includes(pathname);
+    const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/waiting-room', '/team/join'];
+    const isPublicRoute = publicRoutes.some(r => pathname.startsWith(r));
 
-    // Auth routes (login, signup)
+    // Auth routes (login, signup) — if already logged in, redirect away
     const isAuthRoute = ['/login', '/signup'].includes(pathname);
 
     // Onboarding routes

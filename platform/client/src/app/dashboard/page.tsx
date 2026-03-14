@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Activity, Mail, Settings, ArrowRight, Zap, TrendingUp, Users, AlertTriangle, Eye, MousePointer } from 'lucide-react';
+import { Activity, Mail, Settings, ArrowRight, Zap, TrendingUp, Users, AlertTriangle, Eye, MousePointer, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -35,10 +35,51 @@ function HealthRow({ label, value, status, unit = '%' }: {
     );
 }
 
+function ChecklistItem({ isCompleted, title, description, actionUrl, actionText }: any) {
+    return (
+        <div className={`p-4 rounded-xl border transition-all ${isCompleted ? 'bg-[var(--success)]/5 border-[var(--success)]/20' : 'bg-[var(--bg-secondary)]/50 border-[var(--border)] hover:border-[var(--accent)]/30'}`}>
+            <div className="flex gap-4">
+                <div className="mt-0.5">
+                    {isCompleted ? (
+                        <div className="w-6 h-6 rounded-full bg-[var(--success)] text-white flex items-center justify-center shadow-sm shadow-[var(--success)]/20">
+                            <CheckCircle2 size={16} />
+                        </div>
+                    ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-[var(--text-muted)] flex items-center justify-center" />
+                    )}
+                </div>
+                <div className="flex-1">
+                    <h3 className={`font-semibold ${isCompleted ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)]'}`}>{title}</h3>
+                    {description && <p className="text-sm text-[var(--text-muted)] mt-1.5">{description}</p>}
+
+                    {actionUrl && (
+                        <div className="mt-4 flex gap-4 items-center">
+                            <Link href={actionUrl}>
+                                <button className="px-4 py-2 bg-[var(--accent)] hover:brightness-110 text-white text-sm font-medium rounded-lg transition-all shadow-sm shadow-[var(--accent)]/10">
+                                    {actionText}
+                                </button>
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
     const { token } = useAuth();
     const [billing, setBilling] = useState<any>(null);
     const [health, setHealth] = useState<any>(null);
+
+    // Onboarding State
+    const [domains, setDomains] = useState<any[]>([]);
+    const [senders, setSenders] = useState<any[]>([]);
+    const [contactsCount, setContactsCount] = useState<number>(0);
+    const [campaignsCount, setCampaignsCount] = useState<number>(0);
+
+    const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (!token) return;
@@ -57,6 +98,45 @@ export default function DashboardPage() {
             if (data) setBilling(data);
         }).catch(() => { });
 
+        // Fast Path: skip checking the remaining 4 endpoints if onboarding is permanently done
+        if (localStorage.getItem('onboarding_status') === 'completed') {
+            setIsOnboardingCompleted(true);
+            setIsLoading(false);
+            return;
+        }
+
+        // Fetch Onboarding Steps Data
+        Promise.all([
+            fetch(`${API_BASE}/domains?limit=1`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+            fetch(`${API_BASE}/senders?limit=1`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+            fetch(`${API_BASE}/contacts?limit=1`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+            fetch(`${API_BASE}/campaigns?limit=1`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null)
+        ]).then(([domainsData, sendersData, contactsData, campaignsData]) => {
+            const doms = domainsData?.data || [];
+            const snds = sendersData?.data || [];
+            const contCount = contactsData?.data?.length || 0;
+            const campCount = campaignsData?.campaigns?.length || 0;
+
+            setDomains(doms);
+            setSenders(snds);
+            setContactsCount(contCount);
+            setCampaignsCount(campCount);
+
+            // Calculate if they just finished onboarding right now
+            const checkHasDomain = doms.some((d: any) => d.status === 'verified');
+            const checkHasSender = snds.some((s: any) => s.is_verified);
+            const checkSteps = 1 + (checkHasDomain ? 1 : 0) + (checkHasSender ? 1 : 0) + (contCount > 0 ? 1 : 0) + (campCount > 0 ? 1 : 0);
+
+            if (checkSteps === 5) {
+                localStorage.setItem('onboarding_status', 'completed');
+                setIsOnboardingCompleted(true);
+            }
+        }).catch(err => {
+            console.error("Failed to load dashboard data", err);
+        }).finally(() => {
+            setIsLoading(false);
+        });
+
     }, [token]);
 
     const isNearQuota = () => {
@@ -66,6 +146,19 @@ export default function DashboardPage() {
         if (!limit || limit === 0) return false;
         return (used / limit) >= 0.8;
     };
+
+    const hasDomain = domains.some(d => d.status === 'verified');
+    const hasSender = senders.some(s => s.is_verified);
+    const hasContacts = contactsCount > 0;
+    const hasCampaigns = campaignsCount > 0;
+
+    const completedSteps = 1 + (hasDomain ? 1 : 0) + (hasSender ? 1 : 0) + (hasContacts ? 1 : 0) + (hasCampaigns ? 1 : 0);
+    const totalSteps = 5;
+    const progressPercent = Math.round((completedSteps / totalSteps) * 100);
+
+    const isCompletedLayout = isOnboardingCompleted;
+
+    // Instead of completely blocking the page, we'll render inline loading skeletons
 
     return (
         <div className="min-h-screen bg-[var(--bg-primary)] p-8 lg:p-12">
@@ -89,17 +182,105 @@ export default function DashboardPage() {
                 )}
 
                 {/* Header Section */}
-                <div className="mb-12 animate-slide-up stagger-1">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full bg-[var(--accent-glow)] border border-[var(--accent)]/30 text-[var(--accent)] text-xs font-semibold uppercase tracking-wider">
-                        <Zap className="w-3.5 h-3.5" /> Workspace Active
+                {isLoading ? (
+                    <div className="mb-12 animate-slide-up stagger-1">
+                        <div className="h-8 w-64 bg-[var(--bg-secondary)] animate-pulse rounded-md mb-4"></div>
+                        <div className="h-4 w-96 bg-[var(--bg-secondary)] animate-pulse rounded-md"></div>
                     </div>
-                    <h1 className="text-4xl lg:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
-                        Welcome to <span className="text-gradient">Email Engine</span>
-                    </h1>
-                    <p className="text-lg text-[var(--text-muted)] max-w-2xl leading-relaxed">
-                        Your command center for automated communications. Connect your data sources, design beautiful templates, and launch triggered campaigns.
-                    </p>
-                </div>
+                ) : isCompletedLayout ? (
+                    <div className="mb-12 animate-slide-up stagger-1">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full bg-[var(--accent-glow)] border border-[var(--accent)]/30 text-[var(--accent)] text-xs font-semibold uppercase tracking-wider">
+                            <Zap className="w-3.5 h-3.5" /> Workspace Active
+                        </div>
+                        <h1 className="text-4xl lg:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-4">
+                            Welcome to <span className="text-gradient">Email Engine</span>
+                        </h1>
+                        <p className="text-lg text-[var(--text-muted)] max-w-2xl leading-relaxed">
+                            Your command center for automated communications. Connect your data sources, design beautiful templates, and launch triggered campaigns.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="mb-12 animate-slide-up stagger-1">
+                        <h1 className="text-4xl font-bold text-[var(--text-primary)] tracking-tight mb-4 text-gradient">
+                            Setup your workspace
+                        </h1>
+                    </div>
+                )}
+
+                {/* Onboarding Checklist (Mailchimp Style) */}
+                {isLoading ? (
+                    <div className="mb-12 glass-panel p-8 h-[400px] flex items-center justify-center border-[var(--border)]">
+                        <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]/50" />
+                    </div>
+                ) : !isCompletedLayout && (
+                    <div className="mb-12 glass-panel p-8 relative overflow-hidden animate-slide-up stagger-2 border-[var(--accent)]/20">
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] -mt-32 -mr-32 pointer-events-none"></div>
+
+                        <div className="relative z-10">
+                            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">
+                                You're {progressPercent}% closer to best-in-class campaigns
+                            </h2>
+                            <div className="flex items-center gap-4 mb-8">
+                                <span className="text-sm font-medium text-[var(--text-muted)] w-24">{completedSteps}/{totalSteps} complete</span>
+                                <div className="flex-1 h-2.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden border border-[var(--border)]">
+                                    <div className="h-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                <div className="space-y-4">
+                                    <ChecklistItem
+                                        isCompleted={true}
+                                        title="Account created!"
+                                    />
+                                    <ChecklistItem
+                                        isCompleted={hasDomain}
+                                        title={hasDomain ? "Domain verified!" : "Authenticate your domain"}
+                                        description={!hasDomain && "Improve deliverability and avoid spam folders by verifying your DNS records. Takes ~4 minutes."}
+                                        actionUrl={!hasDomain ? "/settings/domain" : null}
+                                        actionText="Start authentication"
+                                    />
+                                    <ChecklistItem
+                                        isCompleted={hasSender}
+                                        title={hasSender ? "Sender identity verified!" : "Verify sender identity"}
+                                        description={!hasSender && "Prove ownership of your inbox before sending campaigns. Crucial for anti-spoofing security. Takes ~1 minute."}
+                                        actionUrl={!hasSender ? "/settings/senders" : null}
+                                        actionText="Verify email"
+                                    />
+                                    <ChecklistItem
+                                        isCompleted={hasContacts}
+                                        title={hasContacts ? "Contacts added!" : "Add your audience"}
+                                        description={!hasContacts && "Import your mailing list to start sending. Wait, you can't run a campaign without people!"}
+                                        actionUrl={!hasContacts ? "/contacts" : null}
+                                        actionText="Import contacts"
+                                    />
+                                    <ChecklistItem
+                                        isCompleted={hasCampaigns}
+                                        title={hasCampaigns ? "First campaign sent!" : "Send your first campaign"}
+                                        description={!hasCampaigns && "Design and launch your first email blast to start engaging your audience."}
+                                        actionUrl={!hasCampaigns ? "/campaigns/new" : null}
+                                        actionText="Create Campaign"
+                                    />
+                                </div>
+
+                                <div className="hidden lg:flex items-center justify-center">
+                                    <div className="w-full max-w-sm aspect-[4/3] bg-gradient-to-br from-[var(--bg-secondary)] to-[var(--bg-primary)] rounded-2xl border border-[var(--border)] shadow-[var(--shadow-lg)] flex flex-col p-6 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)]/10 rounded-full blur-[40px] group-hover:bg-[var(--accent)]/20 transition-colors"></div>
+                                        <div className="flex items-center justify-between mb-8 relative z-10">
+                                            <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center border border-[var(--accent)]/20">
+                                                <Mail size={20} />
+                                            </div>
+                                            <div className="px-3 py-1 bg-[var(--bg-card)] rounded-md border border-[var(--border)] text-xs text-[var(--text-muted)]">Preview</div>
+                                        </div>
+                                        <div className="h-5 w-3/4 bg-[var(--bg-hover)] rounded-md mb-4 relative z-10"></div>
+                                        <div className="h-4 w-1/2 bg-[var(--bg-hover)] rounded-md mb-8 relative z-10"></div>
+                                        <div className="flex-1 w-full bg-[var(--bg-hover)]/50 rounded-lg mt-auto border border-[var(--border)]/50 relative z-10"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Dashboard Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -185,7 +366,13 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {health ? (
+                    {isLoading ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32 }}>
+                            <div className="h-16 bg-[var(--bg-secondary)] animate-pulse rounded-md"></div>
+                            <div className="h-16 bg-[var(--bg-secondary)] animate-pulse rounded-md"></div>
+                            <div className="h-16 bg-[var(--bg-secondary)] animate-pulse rounded-md"></div>
+                        </div>
+                    ) : health && health.health ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32 }}>
                             <div>
                                 <HealthRow label="Bounce Rate" value={health.rates.bounce_rate} status={health.health.bounce.status} />
@@ -211,5 +398,6 @@ export default function DashboardPage() {
         </div>
     );
 }
+
 
 

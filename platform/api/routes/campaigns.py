@@ -17,6 +17,9 @@ import uuid
 import re
 import random
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Rate limiting
 from utils.rate_limiter import limiter
@@ -74,6 +77,13 @@ async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(req
     if not tenant_result.data or tenant_result.data[0]["status"] != "active":
         raise HTTPException(status_code=403, detail="Tenant must be active to create campaigns.")
     
+    # 1.5 Verify Domain
+    domain_result = db.client.table("domains").select("status, domain_name").eq("id", str(campaign.domain_id)).eq("tenant_id", tenant_id).execute()
+    if not domain_result.data:
+        raise HTTPException(status_code=400, detail="Domain not found or does not belong to your workspace.")
+    if domain_result.data[0]["status"] != "verified":
+        raise HTTPException(status_code=400, detail="Selected domain must be verified before it can be used for sending.")
+        
     campaign_id = str(uuid.uuid4())
     
     # 2. Insert Campaign
@@ -83,6 +93,9 @@ async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(req
         "name": campaign.name,
         "subject": campaign.subject,
         "body_html": campaign.body_html,
+        "from_name": campaign.from_name,
+        "from_prefix": campaign.from_prefix,
+        "domain_id": str(campaign.domain_id) if campaign.domain_id else None,
         "status": campaign.status,
         "scheduled_at": campaign.scheduled_at.isoformat() if campaign.scheduled_at else None,
         "created_at": datetime.now().isoformat()
@@ -97,17 +110,43 @@ async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(req
     }
 
 @router.get("/")
-async def list_campaigns(status: Optional[str] = None, limit: int = 50, tenant_id: str = Depends(require_active_tenant)):
-    """List all campaigns for the specific Tenant (excluding archived)"""
+async def list_campaigns(
+    status: Optional[str] = None, 
+    page: int = 1,
+    limit: int = 20,
+    tenant_id: str = Depends(require_active_tenant)
+):
+    """List all campaigns for the specific Tenant (excluding archived) with O(1) Pagination"""
     from utils.supabase_client import db
     
+    # Base query for data
     query = db.client.table("campaigns").select("id, name, subject, status, created_at, scheduled_at, stats:email_tasks(count)").eq("tenant_id", tenant_id).is_("is_archived", "false")
+    
+    # Base query for total count (O(1) metadata)
+    count_query = db.client.table("campaigns").select("id", count="exact").eq("tenant_id", tenant_id).is_("is_archived", "false")
     
     if status:
         query = query.eq("status", status)
+        count_query = count_query.eq("status", status)
     
-    result = query.order("created_at", desc=True).limit(limit).execute()
-    return {"campaigns": result.data}
+    # Execute Count
+    count_res = count_query.execute()
+    total = count_res.count if count_res.count is not None else 0
+    total_pages = (total + limit - 1) // limit if limit > 0 else 0
+
+    # Execute Paginated Data
+    offset = (page - 1) * limit
+    result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+    
+    return {
+        "campaigns": result.data,
+        "meta": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
+    }
 
 @router.get("/{campaign_id}")
 async def get_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
@@ -141,6 +180,14 @@ async def update_campaign(campaign_id: str, campaign: CampaignUpdate, tenant_id:
     from utils.supabase_client import db
     
     update_data = {k: v for k, v in campaign.model_dump().items() if v is not None}
+    
+    # Verify domain if it's being updated
+    if "domain_id" in update_data:
+        domain_result = db.client.table("domains").select("status").eq("id", str(update_data["domain_id"])).eq("tenant_id", tenant_id).execute()
+        if not domain_result.data or domain_result.data[0]["status"] != "verified":
+            raise HTTPException(status_code=400, detail="Domain not found or is not verified.")
+        update_data["domain_id"] = str(update_data["domain_id"])
+        
     if "scheduled_at" in update_data and update_data["scheduled_at"]:
         update_data["scheduled_at"] = update_data["scheduled_at"].isoformat()
     
@@ -171,6 +218,39 @@ async def delete_campaign(campaign_id: str, tenant_id: str = Depends(require_act
         # Prevent deletion of analytics, hide it instead
         db.client.table("campaigns").update({"is_archived": True}).eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
         return {"status": "archived", "id": campaign_id, "message": "Campaign has been archived."}
+
+@router.put("/{campaign_id}")
+async def update_campaign(campaign_id: str, body: dict, tenant_id: str = Depends(require_active_tenant)):
+    """Update an existing draft or paused campaign."""
+    from utils.supabase_client import db
+
+    # Verify ownership and status
+    result = db.client.table("campaigns").select("status").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    status = result.data[0]["status"]
+    if status not in ["draft", "paused"]:
+        raise HTTPException(status_code=400, detail=f"Cannot edit a '{status}' campaign. Only draft or paused campaigns can be edited.")
+
+    update_fields = {}
+    if "name" in body: update_fields["name"] = body["name"]
+    if "subject" in body: update_fields["subject"] = body["subject"]
+    if "body_html" in body: update_fields["body_html"] = body["body_html"]
+    if "from_name" in body: update_fields["from_name"] = body["from_name"]
+    if "from_prefix" in body: update_fields["from_prefix"] = body["from_prefix"]
+    if "domain_id" in body: 
+        domain_result = db.client.table("domains").select("status").eq("id", str(body["domain_id"])).eq("tenant_id", tenant_id).execute()
+        if not domain_result.data or domain_result.data[0]["status"] != "verified":
+            raise HTTPException(status_code=400, detail="Domain not found or is not verified.")
+        update_fields["domain_id"] = str(body["domain_id"])
+
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="Nothing to update.")
+
+    db.client.table("campaigns").update(update_fields).eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+
+    return {"status": "updated", "id": campaign_id, "message": "Campaign updated successfully."}
 
 class ScheduleRequest(BaseModel):
     scheduled_at: str          # ISO-8601 string e.g. "2025-03-10T09:00:00Z"
@@ -204,7 +284,6 @@ async def schedule_campaign(campaign_id: str, request: ScheduleRequest, tenant_i
         "status": "scheduled",
         "scheduled_at": scheduled_dt.isoformat(),
         "audience_target": request.target_list_id or "all",
-        "updated_at": datetime.now().isoformat(),
     }).eq("id", campaign_id).execute()
 
     return {
@@ -215,7 +294,7 @@ async def schedule_campaign(campaign_id: str, request: ScheduleRequest, tenant_i
 
 @router.post("/{campaign_id}/send")
 @limiter.limit("2/minute")
-async def send_campaign(request_obj: Request, campaign_id: str, request: SendRequest, tenant_id: str = Depends(require_active_tenant)):
+async def send_campaign(request: Request, campaign_id: str, send_request: SendRequest, tenant_id: str = Depends(require_active_tenant)):
     """
     ORCHESTRATION TRIGGER:
     1. Validates campaign status (must be draft).
@@ -225,8 +304,8 @@ async def send_campaign(request_obj: Request, campaign_id: str, request: SendReq
     """
     from utils.supabase_client import db
     
-    # 1. Fetch Campaign
-    campaign_res = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    # 1. Fetch Campaign with Domain info
+    campaign_res = db.client.table("campaigns").select("*, domains(domain_name)").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
     if not campaign_res.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
@@ -240,7 +319,7 @@ async def send_campaign(request_obj: Request, campaign_id: str, request: SendReq
     # to reject the API call if they don't have enough quota.
     from utils.billing import check_can_send_campaign
     
-    target = request.target_list_id or "all"
+    target = send_request.target_list_id or "all"
     contacts_query = db.client.table("contacts")\
         .select("id, email, first_name, last_name")\
         .eq("tenant_id", tenant_id)\
@@ -336,6 +415,11 @@ async def send_campaign(request_obj: Request, campaign_id: str, request: SendReq
         subject = process_spintax(campaign["subject"])
         subject = process_merge_tags(subject, contact)
         
+        
+        domain_name = campaign.get("domains", {}).get("domain_name")
+        if not domain_name:
+            raise HTTPException(status_code=400, detail="Campaign has no associated verified domain.")
+            
         tasks.append({
             "dispatch_id": dispatch_id,
             "campaign_id": campaign_id,
@@ -344,6 +428,8 @@ async def send_campaign(request_obj: Request, campaign_id: str, request: SendReq
             "recipient_id": contact["id"],
             "subject": subject,
             "body_html": html_content,
+            "from_name": campaign.get("from_name", "Email Engine"),
+            "from_email": f"{campaign.get('from_prefix', 'noreply')}@{domain_name}"
             # Additional config could be added here (e.g. sender email)
         })
         
@@ -523,16 +609,51 @@ async def send_test_email(campaign_id: str, request: TestEmailRequest, tenant_id
     html_content = process_merge_tags(process_spintax(camp["body_html"]), sample_contact)
     subject = process_merge_tags(process_spintax(camp["subject"]), sample_contact)
 
-    # TODO: Replace with real SMTP send when email sending is connected
-    # For now we just log and return success
-    import logging
-    logging.getLogger("email_engine").info(
-        f"[TEST_EMAIL] Campaign='{camp['name']}' → {request.recipient_email} | Subject: {subject}"
-    )
+    import os
+    import aiosmtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", 587))
+    smtp_user = os.getenv("SMTP_USERNAME")
+    smtp_pass = os.getenv("SMTP_PASSWORD")
+    smtp_from_email = os.getenv("SMTP_FROM_EMAIL", "noreply@example.com")
+    smtp_from_name = os.getenv("SMTP_FROM_NAME", "Email Engine")
+
+    if not smtp_host or not smtp_user:
+        raise HTTPException(status_code=500, detail="SMTP credentials not configured in environment")
+
+    # Construct the raw email payload
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"[TEST] {subject}"
+    msg["From"] = f"{smtp_from_name} <{smtp_from_email}>"
+    msg["To"] = request.recipient_email
+    msg.attach(MIMEText("Please view this email in an email client that supports HTML.", "plain"))
+    msg.attach(MIMEText(html_content, "html"))
+
+    # Send via SMTP
+    try:
+        if smtp_port == 465:
+            await aiosmtplib.send(
+                msg, hostname=smtp_host, port=smtp_port, username=smtp_user, password=smtp_pass, use_tls=True
+            )
+        else:
+            await aiosmtplib.send(
+                msg, hostname=smtp_host, port=smtp_port, username=smtp_user, password=smtp_pass, start_tls=True
+            )
+        
+        import logging
+        logging.getLogger("email_engine").info(f"[TEST_EMAIL] Success: {request.recipient_email}")
+        
+    except Exception as e:
+        import logging
+        logging.getLogger("email_engine").error(f"[TEST_EMAIL] Failed: {e}")
+        raise HTTPException(status_code=500, detail=f"SMTP Error: {str(e)}")
 
     return {
         "status": "sent",
-        "message": f"Test email sent to {request.recipient_email}",
+        "message": f"Test email successfully dispatched to {request.recipient_email}",
         "subject": subject
     }
 

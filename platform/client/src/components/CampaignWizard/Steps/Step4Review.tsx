@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
     Send, CheckCircle2, FileText, Users, LayoutTemplate,
@@ -8,9 +8,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-export default function Step4Review({ data, onBack }: any) {
+export default function Step4Review({ data, onBack, editId }: any) {
     const router = useRouter();
     const { token, user } = useAuth();
     const [status, setStatus] = useState<'idle' | 'creating' | 'sending' | 'success' | 'error'>('idle');
@@ -18,7 +18,9 @@ export default function Step4Review({ data, onBack }: any) {
 
     // Send mode: instant or scheduled
     const [sendMode, setSendMode] = useState<'now' | 'later'>('now');
-    const [scheduledAt, setScheduledAt] = useState(""); // datetime-local value
+    const [scheduleDate, setScheduleDate] = useState("");
+    const [scheduleTime, setScheduleTime] = useState("");
+    const scheduledAt = scheduleDate && scheduleTime ? `${scheduleDate}T${scheduleTime}` : "";
     const [scheduledMsg, setScheduledMsg] = useState("");
 
     // Test email modal
@@ -26,12 +28,28 @@ export default function Step4Review({ data, onBack }: any) {
     const [testEmail, setTestEmail] = useState("");
     const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
-    // Minimum datetime (now + 5 mins) for the schedule picker
-    const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
+    const [minDateTime, setMinDateTime] = useState("");
+
+    // Set minDateTime once on mount so it doesn't constantly change and lock the input during typing
+    useEffect(() => {
+        setMinDateTime(new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16));
+    }, []);
+
+    // Initialize the date and time strings when switching to 'later' mode to prevent Safari/iOS time tumbler bugs
+    useEffect(() => {
+        if (sendMode === 'later' && !scheduleDate && !scheduleTime) {
+            const d = new Date(Date.now() + 5 * 60 * 1000); // Default to 5 mins from now
+            // Adjust for local timezone to get the correct YYYY-MM-DD and HH:mm local format
+            const localISO = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
+            setScheduleDate(localISO.split('T')[0]);
+            setScheduleTime(localISO.split('T')[1].slice(0, 5));
+        }
+    }, [sendMode, scheduleDate, scheduleTime]);
 
     // Pre-send checklist
     const checks = [
         { label: "Campaign name set", ok: !!(data.name?.trim()) },
+        { label: "Sender identity configured", ok: !!(data.from_name && data.from_prefix && data.domain_id) },
         { label: "Subject line filled", ok: !!(data.subject?.trim()) },
         { label: "Content written", ok: !!(data.htmlContent?.trim()) },
         { label: "Audience selected", ok: !!(data.listId) },
@@ -43,25 +61,52 @@ export default function Step4Review({ data, onBack }: any) {
 
         // For scheduled mode, validate a date is chosen and it's in the future
         if (sendMode === 'later') {
-            if (!scheduledAt) { setErrorMsg("Please choose a date and time to schedule."); return; }
-            const chosenDate = new Date(scheduledAt);
-            if (chosenDate <= new Date()) { setErrorMsg("Scheduled time must be in the future."); return; }
+            if (!scheduleDate || !scheduleTime) {
+                setErrorMsg("Please choose both a date and time to schedule.");
+                return;
+            }
+
+            // Re-verify the date and time strictly before sending
+            const chosenDate = new Date(`${scheduleDate}T${scheduleTime}`);
+            if (chosenDate.getTime() <= Date.now()) {
+                setErrorMsg("Scheduled date and time must be in the future (past times are not allowed).");
+                return;
+            }
         }
 
         setStatus('creating');
         setErrorMsg("");
         try {
-            // Step 1: Create the campaign as a draft
-            const createRes = await fetch(`${API_BASE}/campaigns/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                    name: data.name, subject: data.subject,
-                    body_html: data.htmlContent, status: 'draft',
-                })
-            });
-            if (!createRes.ok) throw new Error((await createRes.json()).detail || "Failed to create campaign");
-            const { id: campaignId } = await createRes.json();
+            let campaignId: string;
+
+            if (editId) {
+                // EDIT MODE: Update existing campaign
+                const updateRes = await fetch(`${API_BASE}/campaigns/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        name: data.name, subject: data.subject,
+                        body_html: data.htmlContent, status: 'draft',
+                        from_name: data.from_name, from_prefix: data.from_prefix, domain_id: data.domain_id
+                    })
+                });
+                if (!updateRes.ok) throw new Error((await updateRes.json()).detail || "Failed to update campaign");
+                campaignId = editId;
+            } else {
+                // NEW MODE: Create the campaign as a draft
+                const createRes = await fetch(`${API_BASE}/campaigns/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        name: data.name, subject: data.subject,
+                        body_html: data.htmlContent, status: 'draft',
+                        from_name: data.from_name, from_prefix: data.from_prefix, domain_id: data.domain_id
+                    })
+                });
+                if (!createRes.ok) throw new Error((await createRes.json()).detail || "Failed to create campaign");
+                const result = await createRes.json();
+                campaignId = result.id;
+            }
 
             setStatus('sending');
 
@@ -119,6 +164,11 @@ export default function Step4Review({ data, onBack }: any) {
                 body: JSON.stringify({ recipient_email: testEmail })
             });
             setTestStatus('sent');
+            setTimeout(() => {
+                setShowTestModal(false);
+                setTestStatus('idle');
+                setTestEmail('');
+            }, 2000);
         } catch {
             setTestStatus('error');
         }
@@ -170,6 +220,7 @@ export default function Step4Review({ data, onBack }: any) {
                 {/* Summary */}
                 <div style={{ background: 'rgba(9,9,11,0.4)', borderRadius: '10px', padding: '4px 16px', border: '1px solid rgba(63,63,70,0.3)' }}>
                     {summaryRow(<FileText size={15} color="#71717A" />, 'Campaign', `${data.name} — ${data.subject}`)}
+                    {summaryRow(<Mail size={15} color="#71717A" />, 'Sender', `${data.from_name} <${data.from_prefix}@${data.domain_name || 'your-domain'}>`)}
                     {summaryRow(<Users size={15} color="#71717A" />, 'Audience', data.listName)}
                     {summaryRow(<LayoutTemplate size={15} color="#71717A" />, 'Template', data.templateName)}
                 </div>
@@ -229,16 +280,60 @@ export default function Step4Review({ data, onBack }: any) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Clock size={14} color="#71717A" />
                             <input
-                                type="datetime-local"
-                                min={minDateTime}
-                                value={scheduledAt}
-                                onChange={e => setScheduledAt(e.target.value)}
+                                type="date"
+                                value={scheduleDate}
+                                onChange={e => setScheduleDate(e.target.value)}
                                 style={{
                                     flex: 1, padding: '8px 12px', background: 'rgba(24,24,27,0.6)',
                                     border: '1px solid rgba(63,63,70,0.4)', borderRadius: '8px',
                                     color: '#FAFAFA', fontSize: '13px', outline: 'none', colorScheme: 'dark'
                                 }}
                             />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                <select
+                                    value={scheduleTime ? String((parseInt(scheduleTime.split(':')[0]) % 12) || 12).padStart(2, '0') : '12'}
+                                    onChange={e => {
+                                        const h = parseInt(e.target.value);
+                                        const m = scheduleTime ? scheduleTime.split(':')[1] : '00';
+                                        const isPM = scheduleTime ? parseInt(scheduleTime.split(':')[0]) >= 12 : true;
+                                        let h24 = h;
+                                        if (isPM && h < 12) h24 += 12;
+                                        if (!isPM && h === 12) h24 = 0;
+                                        setScheduleTime(`${String(h24).padStart(2, '0')}:${m}`);
+                                    }}
+                                    style={{ padding: '8px 12px', background: 'rgba(24,24,27,0.6)', border: '1px solid rgba(63,63,70,0.4)', borderRadius: '8px', color: '#FAFAFA', fontSize: '13px', outline: 'none' }}
+                                >
+                                    {[...Array(12)].map((_, i) => <option key={i + 1} value={String(i + 1).padStart(2, '0')}>{String(i + 1).padStart(2, '0')}</option>)}
+                                </select>
+                                <span style={{ color: '#71717A' }}>:</span>
+                                <select
+                                    value={scheduleTime ? scheduleTime.split(':')[1] : '00'}
+                                    onChange={e => {
+                                        const m = e.target.value;
+                                        const h24 = scheduleTime ? scheduleTime.split(':')[0] : '12';
+                                        setScheduleTime(`${h24}:${m}`);
+                                    }}
+                                    style={{ padding: '8px 12px', background: 'rgba(24,24,27,0.6)', border: '1px solid rgba(63,63,70,0.4)', borderRadius: '8px', color: '#FAFAFA', fontSize: '13px', outline: 'none' }}
+                                >
+                                    {[...Array(60)].map((_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}</option>)}
+                                </select>
+                                <select
+                                    value={scheduleTime ? (parseInt(scheduleTime.split(':')[0]) >= 12 ? 'PM' : 'AM') : 'PM'}
+                                    onChange={e => {
+                                        const isPM = e.target.value === 'PM';
+                                        const h24Old = scheduleTime ? parseInt(scheduleTime.split(':')[0]) : 12;
+                                        const m = scheduleTime ? scheduleTime.split(':')[1] : '00';
+                                        let h24 = h24Old;
+                                        if (isPM && h24Old < 12) h24 += 12;
+                                        if (!isPM && h24Old >= 12) h24 -= 12;
+                                        setScheduleTime(`${String(h24).padStart(2, '0')}:${m}`);
+                                    }}
+                                    style={{ padding: '8px 12px', background: 'rgba(24,24,27,0.6)', border: '1px solid rgba(63,63,70,0.4)', borderRadius: '8px', color: '#FAFAFA', fontSize: '13px', outline: 'none', marginLeft: '4px' }}
+                                >
+                                    <option value="AM">AM</option>
+                                    <option value="PM">PM</option>
+                                </select>
+                            </div>
                         </div>
                         {scheduledAt && (
                             <p style={{ fontSize: '11px', color: '#52525B', margin: '8px 0 0' }}>

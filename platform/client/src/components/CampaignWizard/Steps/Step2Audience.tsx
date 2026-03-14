@@ -9,24 +9,28 @@ export default function Step2Audience({ data, updateData, onNext, onBack }: any)
     const [loading, setLoading] = useState(true);
     const [totalContacts, setTotalContacts] = useState(0);
     const [batches, setBatches] = useState<any[]>([]);
+    const [lists, setLists] = useState<any[]>([]);
     const [error, setError] = useState("");
 
     useEffect(() => {
         const fetchData = async () => {
             if (!token) return;
             try {
-                const [statsRes, batchRes] = await Promise.all([
-                    fetch('http://127.0.0.1:8000/contacts/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('http://127.0.0.1:8000/contacts/batches', { headers: { 'Authorization': `Bearer ${token}` } }),
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                const [statsRes, batchRes, listsRes] = await Promise.all([
+                    fetch(`${API_BASE}/contacts/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/contacts/batches`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/lists`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 ]);
                 if (!statsRes.ok || !batchRes.ok) throw new Error("Failed to fetch audience data");
 
                 const stats = await statsRes.json();
                 const batchData = await batchRes.json();
+                const listsData = listsRes.ok ? await listsRes.json() : { lists: [] };
 
                 setTotalContacts(stats.total_contacts || 0);
-                // Only show completed batches with at least 1 import
                 setBatches((batchData.data || []).filter((b: any) => b.status === 'completed' && b.imported_count > 0));
+                setLists(listsData.lists || []);
             } catch (err) {
                 setError("Could not load audience data.");
             } finally {
@@ -131,6 +135,23 @@ export default function Step2Audience({ data, updateData, onNext, onBack }: any)
                         subtitle="subscribers in your account"
                         icon={<Globe size={18} color={data.listId === 'all' ? '#3B82F6' : '#71717A'} />}
                     />
+
+                    {/* === LISTS === */}
+                    {lists.length > 0 && (
+                        <>
+                            <p style={{ fontSize: '11px', fontWeight: 600, color: '#52525B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '12px 0 4px' }}>Your Lists</p>
+                            {lists.map((list: any) => (
+                                <AudienceCard
+                                    key={list.id}
+                                    id={list.id}
+                                    name={list.name}
+                                    count={list.subscriber_count ?? 0}
+                                    subtitle="contacts in this list"
+                                    icon={<Users size={18} color={data.listId === list.id ? '#3B82F6' : '#71717A'} />}
+                                />
+                            ))}
+                        </>
+                    )}
 
                     {/* === IMPORT BATCHES === */}
                     {batches.length > 0 && (

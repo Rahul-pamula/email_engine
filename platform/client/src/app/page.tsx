@@ -219,14 +219,14 @@ export default function LandingPage() {
                             </span>
                         </div>
 
-                        <nav style={{ display: 'flex', gap: '40px' }}>
+                        <nav className="hidden md:flex gap-10">
                             <button onClick={() => scrollToSection('features')} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#94a3b8', cursor: 'pointer', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'white'} onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}>Features</button>
                             <button onClick={() => scrollToSection('integrations')} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#94a3b8', cursor: 'pointer', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'white'} onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}>Integrations</button>
                             <button onClick={() => scrollToSection('pricing')} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#94a3b8', cursor: 'pointer', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'white'} onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}>Pricing</button>
                         </nav>
 
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <Link href="/login" style={{
+                            <Link href="/login" className="hidden sm:inline-block" style={{
                                 fontSize: '14px',
                                 fontWeight: 500,
                                 color: '#e2e8f0',
@@ -308,8 +308,8 @@ export default function LandingPage() {
                                 The developer-first infrastructure for event-driven communications. Build complex workflows, personalize templates, and deliver at scale in minutes.
                             </p>
 
-                            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'center', marginBottom: '80px' }}>
-                                <Link href="/signup" className="btn-premium" style={{
+                            <div className="flex flex-col sm:flex-row gap-5 items-center justify-center mb-20 w-full px-6 sm:px-0">
+                                <Link href="/signup" className="btn-premium w-full sm:w-auto justify-center" style={{
                                     fontSize: '16px',
                                     fontWeight: 600,
                                     padding: '16px 32px',
@@ -322,7 +322,7 @@ export default function LandingPage() {
                                     Get Started Free
                                     <MoveRight style={{ width: '18px', height: '18px' }} />
                                 </Link>
-                                <Link href="/docs" className="glass-card" style={{
+                                <Link href="/docs" className="glass-card w-full sm:w-auto text-center" style={{
                                     fontSize: '16px',
                                     fontWeight: 500,
                                     color: 'white',
@@ -336,7 +336,7 @@ export default function LandingPage() {
                         </div>
 
                         {/* Hero Visual - Floating Terminal */}
-                        <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', perspective: '1000px', animation: 'slide-up 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards', opacity: 0 }}>
+                        <div className="w-full max-w-[900px] mx-auto px-4 sm:px-6 md:px-8 opacity-0 animate-[slide-up_1s_cubic-bezier(0.16,1,0.3,1)_0.2s_forwards]" style={{ perspective: '1000px' }}>
                             <div className="glass-card" style={{
                                 padding: '0',
                                 borderRadius: '20px',
@@ -353,25 +353,25 @@ export default function LandingPage() {
                                     <div style={{ marginLeft: '12px', fontSize: '13px', color: '#64748b', fontFamily: 'monospace' }}>api/trigger-campaign.ts</div>
                                 </div>
                                 {/* Terminal Body */}
-                                <div style={{ padding: '32px', fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '15px', lineHeight: '1.7', color: '#cbd5e1', textAlign: 'left', backgroundColor: '#0f172a' }}>
-                                    <div><span style={{ color: '#c084fc' }}>import</span> {'{ Engine }'} <span style={{ color: '#c084fc' }}>from</span> <span style={{ color: '#34d399' }}>'@email-engine/sdk'</span>;</div>
+                                <div className="p-4 sm:p-8 overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '14px', lineHeight: '1.7', color: '#cbd5e1', textAlign: 'left', backgroundColor: '#0f172a' }}>
+                                    <div className="whitespace-pre"><span style={{ color: '#c084fc' }}>import</span> {'{ Engine }'} <span style={{ color: '#c084fc' }}>from</span> <span style={{ color: '#34d399' }}>'@email-engine/sdk'</span>;</div>
                                     <br />
-                                    <div><span style={{ color: '#60a5fa' }}>const</span> app = <span style={{ color: '#fbbf24' }}>new</span> <span style={{ color: '#60a5fa' }}>Engine</span>(process.env.API_KEY);</div>
+                                    <div className="whitespace-pre"><span style={{ color: '#60a5fa' }}>const</span> app = <span style={{ color: '#fbbf24' }}>new</span> <span style={{ color: '#60a5fa' }}>Engine</span>(process.env.API_KEY);</div>
                                     <br />
-                                    <div>app.<span style={{ color: '#60a5fa' }}>on</span>(<span style={{ color: '#34d399' }}>'user.signup'</span>, <span style={{ color: '#c084fc' }}>async</span> (event) {'=>'} {'{'}</div>
-                                    <div style={{ paddingLeft: '24px' }}>
+                                    <div className="whitespace-pre">app.<span style={{ color: '#60a5fa' }}>on</span>(<span style={{ color: '#34d399' }}>'user.signup'</span>, <span style={{ color: '#c084fc' }}>async</span> (event) {'=>'} {'{'}</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '24px' }}>
                                         <span style={{ color: '#c084fc' }}>await</span> app.<span style={{ color: '#60a5fa' }}>campaigns</span>.<span style={{ color: '#60a5fa' }}>trigger</span>({'{'}
                                     </div>
-                                    <div style={{ paddingLeft: '48px', color: '#cbd5e1' }}>workflowId: <span style={{ color: '#34d399' }}>'wfl_welcome_series'</span>,</div>
-                                    <div style={{ paddingLeft: '48px', color: '#cbd5e1' }}>contact: event.user.email,</div>
-                                    <div style={{ paddingLeft: '48px', color: '#cbd5e1' }}>data: {'{'}</div>
-                                    <div style={{ paddingLeft: '72px', color: '#93c5fd' }}>name: event.user.firstName,</div>
-                                    <div style={{ paddingLeft: '72px', color: '#93c5fd' }}>trialEnds: event.user.trialEndDate</div>
-                                    <div style={{ paddingLeft: '48px' }}>{'}'}</div>
-                                    <div style={{ paddingLeft: '24px' }}>{'}'});</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '48px', color: '#cbd5e1' }}>workflowId: <span style={{ color: '#34d399' }}>'wfl_welcome_series'</span>,</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '48px', color: '#cbd5e1' }}>contact: event.user.email,</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '48px', color: '#cbd5e1' }}>data: {'{'}</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '72px', color: '#93c5fd' }}>name: event.user.firstName,</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '72px', color: '#93c5fd' }}>trialEnds: event.user.trialEndDate</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '48px' }}>{'}'}</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '24px' }}>{'}'});</div>
                                     <br />
-                                    <div style={{ paddingLeft: '24px', color: '#64748b' }}>// ✨ Email delivered instantly</div>
-                                    <div>{'}'});</div>
+                                    <div className="whitespace-pre" style={{ paddingLeft: '24px', color: '#64748b' }}>// ✨ Email delivered instantly</div>
+                                    <div className="whitespace-pre">{'}'});</div>
                                 </div>
                             </div>
                         </div>
@@ -411,15 +411,15 @@ export default function LandingPage() {
                         </p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
 
                         {/* Box 1 */}
-                        <div className="glass-card" style={{ gridColumn: 'span 8', padding: '48px', borderRadius: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', animation: 'float-delayed 7s ease-in-out infinite' }}>
+                        <div className="glass-card sm:col-span-12 md:col-span-8 p-8 md:p-12 rounded-[32px] flex flex-col justify-between hover:scale-[1.02] transition-transform animate-[float-delayed_7s_ease-in-out_infinite]">
                             <div>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(96, 165, 250, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
                                     <Workflow style={{ width: '24px', height: '24px', color: '#60a5fa' }} />
                                 </div>
-                                <h3 style={{ fontSize: '28px', fontWeight: 600, color: 'white', marginBottom: '16px' }}>Visual Automation Builder</h3>
+                                <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">Visual Automation Builder</h3>
                                 <p style={{ fontSize: '16px', color: '#94a3b8', lineHeight: '1.6', maxWidth: '400px' }}>
                                     Design complex journeys with a drag-and-drop workflow canvas. Set delays, rules, and conditions without touching the code.
                                 </p>
@@ -427,12 +427,12 @@ export default function LandingPage() {
                         </div>
 
                         {/* Box 2 */}
-                        <div className="glass-card" style={{ gridColumn: 'span 4', padding: '48px', borderRadius: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div className="glass-card sm:col-span-6 md:col-span-4 p-8 md:p-12 rounded-[32px] flex flex-col justify-between hover:scale-[1.02] transition-transform">
                             <div>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
                                     <Code2 style={{ width: '24px', height: '24px', color: '#c084fc' }} />
                                 </div>
-                                <h3 style={{ fontSize: '24px', fontWeight: 600, color: 'white', marginBottom: '16px' }}>Developer API</h3>
+                                <h3 className="text-xl md:text-2xl font-semibold text-white mb-4">Developer API</h3>
                                 <p style={{ fontSize: '16px', color: '#94a3b8', lineHeight: '1.6' }}>
                                     RESTful endpoints with predictable payloads and comprehensive webhooks.
                                 </p>
@@ -440,12 +440,12 @@ export default function LandingPage() {
                         </div>
 
                         {/* Box 3 */}
-                        <div className="glass-card" style={{ gridColumn: 'span 4', padding: '48px', borderRadius: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div className="glass-card sm:col-span-6 md:col-span-4 p-8 md:p-12 rounded-[32px] flex flex-col justify-between hover:scale-[1.02] transition-transform">
                             <div>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                                     <Shield style={{ width: '24px', height: '24px', color: '#34d399' }} />
                                 </div>
-                                <h3 style={{ fontSize: '24px', fontWeight: 600, color: 'white', marginBottom: '16px' }}>Multi-Tenant Security</h3>
+                                <h3 className="text-xl md:text-2xl font-semibold text-white mb-4">Multi-Tenant Security</h3>
                                 <p style={{ fontSize: '16px', color: '#94a3b8', lineHeight: '1.6' }}>
                                     Isolated workspaces out of the box. Safe for B2B SaaS applications.
                                 </p>
@@ -453,12 +453,12 @@ export default function LandingPage() {
                         </div>
 
                         {/* Box 4 */}
-                        <div className="glass-card" style={{ gridColumn: 'span 8', padding: '48px', borderRadius: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', animation: 'float 9s ease-in-out infinite' }}>
+                        <div className="glass-card sm:col-span-12 md:col-span-8 p-8 md:p-12 rounded-[32px] flex flex-col justify-between hover:scale-[1.02] transition-transform animate-[float_9s_ease-in-out_infinite]">
                             <div>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(251, 191, 36, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
                                     <Zap style={{ width: '24px', height: '24px', color: '#fbbf24' }} />
                                 </div>
-                                <h3 style={{ fontSize: '28px', fontWeight: 600, color: 'white', marginBottom: '16px' }}>Real-time Delivery Pipeline</h3>
+                                <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">Real-time Delivery Pipeline</h3>
                                 <p style={{ fontSize: '16px', color: '#94a3b8', lineHeight: '1.6', maxWidth: '400px' }}>
                                     Our Rust-based ingest servers and Redis queues ensure sub-millisecond event processing and reliable email dispatch even during massive spikes.
                                 </p>
@@ -478,8 +478,8 @@ export default function LandingPage() {
                             Join hundreds of developers building the future of automated communications.
                         </p>
 
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                            <Link href="/signup" className="btn-premium" style={{
+                        <div className="flex flex-col sm:flex-row gap-5 justify-center w-full px-6 sm:px-0">
+                            <Link href="/signup" className="btn-premium w-full sm:w-auto justify-center" style={{
                                 fontSize: '16px',
                                 fontWeight: 600,
                                 padding: '16px 32px',
@@ -497,55 +497,55 @@ export default function LandingPage() {
                 </section>
 
                 {/* Footer */}
-                <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '64px 24px', background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '48px' }}>
+                <footer className="border-t border-white/5 py-16 px-6 bg-black/30">
+                    <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12">
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-                                <Mail style={{ width: '16px', height: '16px', color: '#60a5fa' }} />
-                                <span style={{ fontSize: '16px', fontWeight: 600, color: 'white' }}>Email Engine</span>
+                            <div className="flex items-center gap-2 mb-6">
+                                <Mail className="w-4 h-4 text-blue-400" />
+                                <span className="text-base font-semibold text-white">Email Engine</span>
                             </div>
-                            <p style={{ fontSize: '14px', color: '#64748b', lineHeight: '1.6' }}>
+                            <p className="text-sm text-slate-400 leading-relaxed">
                                 The modern infrastructure for event-driven email automation.
                             </p>
                         </div>
 
                         <div>
-                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '20px' }}>Product</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Features</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Integrations</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Pricing</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Changelog</Link>
+                            <h4 className="text-sm font-semibold text-white mb-5">Product</h4>
+                            <div className="flex flex-col gap-3">
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Features</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Integrations</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Pricing</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Changelog</Link>
                             </div>
                         </div>
 
                         <div>
-                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '20px' }}>Developers</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <Link href="/docs" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Documentation</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>API Reference</Link>
-                                <a href="https://github.com" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    GitHub <ExternalLink style={{ width: '12px', height: '12px' }} />
+                            <h4 className="text-sm font-semibold text-white mb-5">Developers</h4>
+                            <div className="flex flex-col gap-3">
+                                <Link href="/docs" className="text-sm text-slate-400 hover:text-white transition-colors">Documentation</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">API Reference</Link>
+                                <a href="https://github.com" className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
+                                    GitHub <ExternalLink className="w-3 h-3" />
                                 </a>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Status</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Status</Link>
                             </div>
                         </div>
 
                         <div>
-                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '20px' }}>Company</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>About</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Blog</Link>
-                                <Link href="#" style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'none' }}>Contact</Link>
+                            <h4 className="text-sm font-semibold text-white mb-5">Company</h4>
+                            <div className="flex flex-col gap-3">
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">About</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</Link>
+                                <Link href="#" className="text-sm text-slate-400 hover:text-white transition-colors">Contact</Link>
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ maxWidth: '1280px', margin: '64px auto 0', paddingTop: '32px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <p style={{ fontSize: '14px', color: '#64748b' }}>© 2026 Email Engine Inc. All rights reserved.</p>
-                        <div style={{ display: 'flex', gap: '24px' }}>
-                            <Link href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>Privacy</Link>
-                            <Link href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>Terms</Link>
+                    <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/5 flex justify-between items-center sm:flex-row flex-col gap-4">
+                        <p className="text-sm text-slate-500">© 2026 Email Engine Inc. All rights reserved.</p>
+                        <div className="flex gap-6">
+                            <Link href="#" className="text-sm text-slate-500 hover:text-white transition-colors">Privacy</Link>
+                            <Link href="#" className="text-sm text-slate-500 hover:text-white transition-colors">Terms</Link>
                         </div>
                     </div>
                 </footer>

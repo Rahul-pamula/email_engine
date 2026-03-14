@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, ChevronLeft, LogOut, Activity, Users, Zap, LayoutTemplate, Settings } from 'lucide-react';
+import { Mail, ChevronLeft, Activity, Users, Zap, LayoutTemplate, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -117,21 +117,6 @@ export default function Sidebar() {
                 </ul>
             </nav>
 
-            {/* Footer with Logout */}
-            <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-card)]/50">
-                <button
-                    onClick={logout}
-                    className={`
-                        w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
-                        text-[var(--text-muted)] hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent group
-                        ${collapsed ? 'justify-center' : 'justify-start'}
-                    `}
-                    title={collapsed ? "Log Out" : undefined}
-                >
-                    <LogOut className="w-5 h-5 group-hover:text-red-400 transition-colors" />
-                    {!collapsed && <span>Log Out</span>}
-                </button>
-            </div>
         </aside>
     );
 }

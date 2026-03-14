@@ -74,8 +74,9 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request):
             "expires_at": expires_at.isoformat(),
         }).execute()
 
-        # Send the reset email (fire and don't block on failure)
-        await send_password_reset_email(body.email, reset_token)
+        # Fire-and-forget: send the email in the background so response is instant
+        import asyncio as _aio
+        _aio.create_task(send_password_reset_email(body.email, reset_token))
 
         # Audit log
         await write_log(

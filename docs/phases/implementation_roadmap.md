@@ -103,15 +103,25 @@ Implements infrastructure quotas to protect the overall system and introduces ad
   * Automated banners warning users approaching soft limits (e.g., 80% usage capacity).
   * Domain DNS verification readouts (SPF/DKIM tracking).
 
-## Phase 8 & 9: Platform Governance & Payments
-Builds out the internal company tools and billing integrations for SaaS commercialization.
-* **Backend Implementation:**
-  * Super-Admin RBAC (Role-Based Access Control) with privileged REST APIs.
-  * Global and Per-Tenant Boolean "Kill Switches" checked by worker loops to instantly halt malicious spammers.
-  * Webhook cryptographic signature verification (Stripe integration) for automated tier upgrades and subscription lifecycle management.
-* **Frontend Implementation:**
-  * Internal Company-facing Admin Dashboards for total platform observability.
-  * Client-facing plan comparison UI and invoice downloading centers.
+## Phase 8: Account Settings & Administration
+Breaks down the massive enterprise account management requirements into three manageable user-facing sub-phases, plus an internal admin dashboard.
+* **Phase 8A: Settings Core (Identity & Organization)**
+  * **Backend:** `PATCH /auth/me` (personal profile) and `PATCH /tenants/me` (organization details, CAN-SPAM physical address).
+  * **Frontend:** `/settings` landing page with navigation cards, `/settings/profile`, and `/settings/organization` pages.
+* **Phase 8B: Security & Legal Compliance (GDPR/CASL)**
+  * **Backend:** Endpoints for GDPR Data Export (ZIP generation) and Right-to-Erasure (anonymization).
+  * **Frontend:** `/settings/compliance` page showcasing privacy toggles and data portability controls.
+* **Phase 8C: Developer Tools & Deliverability**
+  * **Backend:** Secure API key generation (SHA-256 hashed storage) and DNS record generation logic for custom sending domains (SPF/DKIM).
+  * **Frontend:** `/settings/api-keys` and `/settings/domain` setup wizard.
+* **Phase 8D: Super-Admin & Global Governance**
+  * **Backend:** RBAC structure for platform administrators and a Global "Kill Switch" to instantly halt malicious tenants.
+  * **Frontend:** Internal company-facing dashboards observing all workspaces and system health.
+
+## Phase 9: Payments & Subscription Billing
+Integrates commercialization guardrails.
+* **Backend:** Stripe/Razorpay Webhook verification for automated tier upgrades and subscription lifecycle management.
+* **Frontend:** Client-facing plan comparison UI, checkout flows, and invoice downloading centers.
 
 ## Phase 10 & 11: Advanced Marketing & API Connectivity
 Expands the platform to support enterprise marketing requirements and external developer integration.

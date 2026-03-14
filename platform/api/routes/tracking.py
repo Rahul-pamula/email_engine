@@ -25,16 +25,39 @@ PIXEL_GIF = base64.b64decode(
 
 # ── Bot Detection ──────────────────────────────────────────────────────────────
 BOT_UA_FRAGMENTS = [
+    # Search engine bots
     "googlebot", "bingbot", "yahoobot", "slurp", "duckduckbot", "baiduspider",
-    "yandexbot", "sogou", "exabot", "facebookexternalhit", "semrushbot",
+    "yandexbot", "sogou", "exabot", "semrushbot",
     "ahrefs", "mj12bot", "dotbot", "rogerbot", "screaming frog",
+    # Email client image proxies (these pre-load pixels, causing false opens)
+    "googleimageproxy",   # Gmail Image Proxy (via ggpht.com)
+    "ggpht.com",          # Gmail Image Proxy alternate identifier
+    "yahoo link preview", # Yahoo Mail proxy
+    "yahooproxy",         # Yahoo proxy
+    "applebot",           # Apple bot
+# Generic automation / dev tools
     "preview", "scanner", "curl", "python-requests", "go-http-client",
-    "postmanruntime", "axios", "okhttp",
+    "postmanruntime", "axios", "okhttp", "facebookexternalhit",
 ]
 
-def _is_bot(user_agent: str) -> bool:
+# IP prefixes used by major email clients for image proxying
+PROXY_IP_PREFIXES = [
+    # Google Image Proxy (Gmail)
+    "66.249.84.", "66.249.85.", "66.249.89.", "66.249.91.",
+    "72.14.199.", "74.125.", "104.28.", "108.177.",
+    # Yahoo
+    "216.39.62.", "66.218.66.",
+]
+
+def _is_bot(user_agent: str, ip: str = "") -> bool:
     ua = (user_agent or "").lower()
-    return any(frag in ua for frag in BOT_UA_FRAGMENTS)
+    if any(frag in ua for frag in BOT_UA_FRAGMENTS):
+        return True
+        
+    if ip and any(ip.startswith(prefix) for prefix in PROXY_IP_PREFIXES):
+        return True
+        
+    return False
 
 
 
@@ -42,18 +65,17 @@ def _record_event(dispatch_id: str, event_type: str, url: str | None,
                   ip: str, user_agent: str) -> None:
     """Fire-and-forget: record tracking event in email_events table."""
     try:
-        # Get campaign + contact from dispatch record (simple query, no join)
+        # Get dispatch info
         disp = db.client.table("campaign_dispatch")\
             .select("campaign_id, subscriber_id")\
             .eq("id", dispatch_id)\
-            .single()\
             .execute()
 
         if not disp.data:
             logger.warning(f"[TRACK] dispatch_id {dispatch_id} not found")
             return
 
-        d = disp.data
+        d = disp.data[0]
         campaign_id = d["campaign_id"]
         contact_id  = d["subscriber_id"]
 
@@ -61,15 +83,14 @@ def _record_event(dispatch_id: str, event_type: str, url: str | None,
         camp = db.client.table("campaigns")\
             .select("tenant_id")\
             .eq("id", campaign_id)\
-            .single()\
             .execute()
 
         if not camp.data:
             logger.warning(f"[TRACK] campaign {campaign_id} not found")
             return
 
-        tenant_id = camp.data["tenant_id"]
-        is_bot    = _is_bot(user_agent)
+        tenant_id = camp.data[0]["tenant_id"]
+        is_bot    = _is_bot(user_agent, ip)
 
         # Bot detection for click: check if there was a recent open
         # If no open exists yet for this dispatch, it may be a scanner prefetch

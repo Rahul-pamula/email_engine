@@ -5,9 +5,13 @@ import { useAuth } from '@/context/AuthContext';
 import { Mail, Lock, Building2, User, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui';
+import { useSearchParams } from 'next/navigation';
 
 export default function SignupPage() {
     const { signup } = useAuth();
+    const searchParams = useSearchParams();
+    const redirectPath = searchParams.get('redirect'); // e.g. /team/join?token=xxx
+    const isInviteFlow = !!redirectPath;
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -23,7 +27,7 @@ export default function SignupPage() {
         setIsSubmitting(true);
         setError('');
 
-        if (!formData.email || !formData.password || !formData.tenant_name) {
+        if (!formData.email || !formData.password || (!formData.tenant_name && !isInviteFlow)) {
             setError('Please fill in all required fields');
             setIsSubmitting(false);
             return;
@@ -33,11 +37,13 @@ export default function SignupPage() {
             await signup(
                 formData.email,
                 formData.password,
-                formData.tenant_name,
+                // If this is an invite flow, we don't create a new workspace
+                isInviteFlow ? '' : formData.tenant_name,
                 formData.first_name,
-                formData.last_name
+                formData.last_name,
+                redirectPath || undefined
             );
-            // The auth context handles the redirect to /onboarding
+            // Auth context handles the redirect (back to /team/join if invite flow)
         } catch (err: any) {
             setError(err.message || 'Error creating account');
             setIsSubmitting(false);
@@ -173,25 +179,28 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5 uppercase tracking-wide">
-                                Company / Tenant Name <span className="text-[var(--danger)]">*</span>
-                            </label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Building2 className="h-4 w-4 text-[var(--text-muted)] group-focus-within:text-[var(--accent)] transition-colors" />
+                        {/* Workspace Name - Only shown for new owners, not invites */}
+                        {!isInviteFlow && (
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5 uppercase tracking-wide">
+                                    Company / Workspace Name <span className="text-[var(--danger)]">*</span>
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Building2 className="h-4 w-4 text-[var(--text-muted)] group-focus-within:text-[var(--accent)] transition-colors" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="tenant_name"
+                                        required={!isInviteFlow}
+                                        value={formData.tenant_name}
+                                        onChange={handleChange}
+                                        className="block w-full pl-9 pr-3 py-2.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] xl:text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition-all"
+                                        placeholder="Acme Corp"
+                                    />
                                 </div>
-                                <input
-                                    type="text"
-                                    name="tenant_name"
-                                    required
-                                    value={formData.tenant_name}
-                                    onChange={handleChange}
-                                    className="block w-full pl-9 pr-3 py-2.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] xl:text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition-all"
-                                    placeholder="Acme Corp"
-                                />
                             </div>
-                        </div>
+                        )}
 
                         <div>
                             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5 uppercase tracking-wide">
@@ -246,7 +255,7 @@ export default function SignupPage() {
 
                     <p className="text-center text-sm text-[var(--text-muted)]">
                         Already have an account?{' '}
-                        <Link href="/login" className="font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors">
+                        <Link href={`/login${isInviteFlow ? `?redirect=${encodeURIComponent(redirectPath as string)}` : ''}`} className="font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors">
                             Sign in here
                         </Link>
                     </p>

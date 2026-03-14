@@ -27,7 +27,7 @@ logging.basicConfig(
 
 # Import route modules
 from fastapi.staticfiles import StaticFiles
-from routes import campaigns, webhooks, auth, onboarding, contacts, templates, assets, password_reset, billing
+from routes import campaigns, webhooks, auth, onboarding, contacts, templates, assets, password_reset, billing, settings, domains, team, senders
 
 # Rate limiter — shared instance backed by Redis for multi-tenant scaling
 from utils.rate_limiter import limiter
@@ -147,6 +147,10 @@ app.include_router(contacts.router)
 app.include_router(templates.router)
 app.include_router(assets.router)
 app.include_router(billing.router)
+app.include_router(settings.router)  # Phase 8 — Account Settings
+app.include_router(domains.router)   # Phase 8C — Domain Verification
+app.include_router(team.router)      # Phase 9 — Team Workspaces (Enterprise RBAC)
+app.include_router(senders.router)   # Phase 10 — Anti-Spoofing
 app.include_router(password_reset.router)  # Phase 1.5 — forgot/reset password
 
 # Phase 4 — Events activity feed
