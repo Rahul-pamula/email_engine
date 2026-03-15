@@ -144,3 +144,8 @@ Phase 5 is the reliable, compliant email delivery engine — the Python worker t
 | Sender warm-up throttle | Phase 7 |
 | List hygiene automation | Phase 7 |
 | IP reputation isolation per tenant | Phase 7 |
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

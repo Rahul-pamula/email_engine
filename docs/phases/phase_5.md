@@ -43,3 +43,10 @@
 - Webhooks: `platform/api/routes/webhooks.py`
 - Unsubscribe/resubscribe: `platform/api/routes/unsubscribe.py`
 - Unsubscribe page: `platform/client/src/app/unsubscribe/page.tsx`
+
+---
+## Technical Appendix (Engineering view)
+- Unsubscribe: worker injects tokenized link (/unsubscribe?token=..); token = contact_id:campaign_id:HMAC(UNSUBSCRIBE_SECRET).
+- Footer: CAN-SPAM address + unsubscribe appended on send.
+- Bounce/Spam: SES webhooks mark contacts bounced/unsubscribed.
+- UI: unsubscribe landing + resubscribe form.

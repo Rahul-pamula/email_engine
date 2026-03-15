@@ -306,3 +306,10 @@ But it is not complete against the original checklist, and the previous docs wer
 - core template engine: implemented
 - active editor path: structured block editor
 - operational completeness against original Phase 3 promise: partial
+
+---
+## Technical Appendix (Engineering view)
+- Tables: templates, template_versions (history), categories.
+- Endpoints: /templates CRUD, /templates/{id}/preview (server compile).
+- Editor: block/canvas UI (GrapesJS planned) with server-side preview.
+- Files: platform/api/routes/templates.py, platform/client/src/app/templates/*.

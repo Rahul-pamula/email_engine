@@ -373,3 +373,10 @@ But the old docs were too optimistic. The correct status is:
 - campaign orchestration core: implemented
 - wizard and operator controls: implemented
 - operational completeness against the original Phase 4 promise: mostly complete, with a few important frontend-backend mismatches still open
+
+---
+## Technical Appendix (Engineering view)
+- Tables: campaigns, campaign_dispatch, email_tasks (queue); fields status, scheduled_at, locked_by.
+- Endpoints: /campaigns CRUD, /campaigns/{id}/pause|resume|cancel, scheduler loop; audience selection via batches/domains.
+- Worker: RabbitMQ consumer builds emails, respects pause/cancel, dispatch state machine.
+- UI: campaign wizard under platform/client/src/app/campaigns/*; audience domain filtering and batch selection implemented.

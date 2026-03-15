@@ -486,3 +486,9 @@ Phase 0 should only be marked complete when all of the following are true:
 Phase 0 has produced a real design-system foundation, but it is not fully complete. The correct status is:
 
 **Foundation created, partially adopted, not yet fully standardized.**
+
+---
+## Technical Appendix (Engineering view)
+- Stack: Next.js App Router, Tailwind, shadcn/ui; design tokens in globals.css; layout shell with responsive sidebar.
+- Components: Button, Badge, StatCard, ConfirmModal, Toast, PageHeader, DataTable, EmptyState, Breadcrumb, LoadingSpinner, StatusBadge.
+- Files: platform/client/src/app/(dashboard) layout + components under platform/client/src/components/ui.*

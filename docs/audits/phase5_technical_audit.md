@@ -32,3 +32,8 @@
 - `platform/api/routes/webhooks.py` — bounce/spam/ses handlers
 - `platform/api/routes/unsubscribe.py` — unsubscribe/resubscribe endpoints
 - `platform/client/src/app/unsubscribe/page.tsx` — unsubscribe UI
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

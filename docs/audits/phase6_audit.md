@@ -26,3 +26,8 @@
 - Analytics API: `/Users/pamula/Desktop/Sh_R_Mail/platform/api/routes/analytics.py`
 - UI: `/Users/pamula/Desktop/Sh_R_Mail/platform/client/src/app/campaigns/[id]/analytics/page.tsx`
 - Migration: `/Users/pamula/Desktop/Sh_R_Mail/migrations/012_email_events.sql` (mirrored under `platform/database/migrations/`)
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

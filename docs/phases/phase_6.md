@@ -20,3 +20,11 @@
 - Configure `TRACKING_SECRET` in both worker and API (.env). Rotate via env and restart.
 - Retention/indexing: current indexes cover the hot paths; add time‑based partitioning when `email_events` exceeds ~50M rows (monthly partitions on `created_at` by tenant).
 - To disable IP/UA capture for privacy-sensitive tenants, stub the fields before insert (future toggle).
+
+---
+## Technical Appendix (Engineering view)
+- Tracking endpoints: GET /track/open/{dispatch_id}?s=HMAC, /track/click?d=...&u=...&s=...&hp=1; HMAC with TRACKING_SECRET.
+- Bot filtering: UA/IP heuristics, honeypot, click<2s-after-open.
+- Storage: email_events table + indexes on campaign_id/dispatch_id/event_type/created_at.
+- Analytics APIs: /analytics/campaigns/{id}, /analytics/campaigns/{id}/recipients exclude is_bot=true.
+- UI: /campaigns/[id]/analytics KPI + recipient timeline.

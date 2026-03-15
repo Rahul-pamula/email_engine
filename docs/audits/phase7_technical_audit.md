@@ -26,3 +26,8 @@
 - Quota helper: `platform/api/utils/billing.py`
 - Daily limit logic: `platform/api/routes/campaigns.py` (send flow)
 - Rate limiter: `platform/api/utils/rate_limiter.py`, `platform/api/main.py`
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

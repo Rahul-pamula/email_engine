@@ -405,3 +405,10 @@ Phase 1 has built the real application foundation and is functionally strong.
 The correct status is:
 
 **Core foundation implemented, but documentation, security-model clarity, and endpoint consistency still need cleanup.**
+
+---
+## Technical Appendix (Engineering view)
+- Auth: Supabase Auth JWT; middleware attaches tenant_id/context for FastAPI routes.
+- RLS: tenant_id column required on core tables; policies enforce auth.jwt().tenant_id.
+- Onboarding: Next.js pages under /onboarding; API for tenant profile creation.
+- Key files: platform/api/middleware/auth.py, platform/api/routes/auth.py, platform/client/src/app/(auth)/*, platform/database RLS policies.

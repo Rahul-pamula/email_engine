@@ -26,3 +26,9 @@
 - Quota helper: `platform/api/utils/billing.py`
 - Daily limit check: `platform/api/routes/campaigns.py` (send flow)
 - Rate limiter: `platform/api/utils/rate_limiter.py`, `platform/api/main.py`
+
+---
+## Technical Appendix (Engineering view)
+- Implemented: monthly quota check, daily send limit pre-check, slowapi rate limiting middleware (Redis).
+- Planned: usage UI polish, billing integration, cap-by-remaining, quota alerts, stricter 429 responses.
+- Files: platform/api/routes/campaigns.py (check_can_send_campaign), middleware/rate_limiter.py, Redis counters.

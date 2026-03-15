@@ -395,3 +395,8 @@ The correct engineering verdict is:
 
 **Strong foundation implemented.**
 **Documentation accuracy, consistency, and hardening still need cleanup.**
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.
