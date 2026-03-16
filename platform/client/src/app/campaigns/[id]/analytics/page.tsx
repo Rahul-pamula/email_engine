@@ -18,6 +18,7 @@ type Stats = {
   click_to_open: number;
   bounce_rate: number;
   unsubscribe_rate: number;
+  view?: string;
 };
 
 type Recipient = {
@@ -30,6 +31,7 @@ type Recipient = {
   clicked: boolean;
   bounced: boolean;
   unsubscribed: boolean;
+  sources?: string[];
 };
 
 export default function CampaignAnalyticsPage() {
@@ -39,7 +41,9 @@ export default function CampaignAnalyticsPage() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   const [stats, setStats] = useState<Stats | null>(null);
+   const [sources, setSources] = useState<Record<string, number>>({});
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [view, setView] = useState<"human" | "all">("human");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -51,14 +55,15 @@ export default function CampaignAnalyticsPage() {
       setLoading(true);
       try {
         const [sRes, rRes] = await Promise.all([
-          fetch(`${API_BASE}/analytics/campaigns/${id}`, { headers }),
-          fetch(`${API_BASE}/analytics/campaigns/${id}/recipients`, { headers }),
+          fetch(`${API_BASE}/analytics/campaigns/${id}?view=${view}`, { headers }),
+          fetch(`${API_BASE}/analytics/campaigns/${id}/recipients?view=${view}`, { headers }),
         ]);
         if (!sRes.ok) throw new Error((await sRes.json()).detail || "Failed to load stats");
         if (!rRes.ok) throw new Error((await rRes.json()).detail || "Failed to load recipients");
         const sJson = await sRes.json();
         const rJson = await rRes.json();
         setStats(sJson.stats);
+        setSources(sJson.sources || {});
         setRecipients(rJson.recipients || []);
         setError("");
       } catch (e: any) {
@@ -68,7 +73,7 @@ export default function CampaignAnalyticsPage() {
       }
     };
     load();
-  }, [token, id, API_BASE]);
+  }, [token, id, API_BASE, view]);
 
   const statCards = stats
     ? [
@@ -92,6 +97,25 @@ export default function CampaignAnalyticsPage() {
       <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#FAFAFA", marginBottom: "16px" }}>
         Campaign Analytics
       </h1>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+        {(["human", "all"] as const).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setView(opt)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: opt === view ? "1px solid #8B5CF6" : "1px solid rgba(63,63,70,0.35)",
+              background: opt === view ? "rgba(139,92,246,0.1)" : "rgba(24,24,27,0.5)",
+              color: "#E4E4E7",
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            {opt === "human" ? "Human-filtered" : "All signals"}
+          </button>
+        ))}
+      </div>
 
       {error && (
         <div style={{ padding: "12px 14px", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#F87171", marginBottom: "16px" }}>
@@ -113,6 +137,18 @@ export default function CampaignAnalyticsPage() {
             ))}
           </div>
 
+          <div style={{ marginBottom: "18px" }}>
+            <h3 style={{ color: "#A1A1AA", fontSize: "13px", marginBottom: "6px" }}>Proxy / scanner signals</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {Object.entries(sources || {}).map(([k, v]) => (
+                <div key={k} style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid rgba(63,63,70,0.35)", color: "#E4E4E7", background: "rgba(24,24,27,0.4)" }}>
+                  <span style={{ textTransform: "capitalize", marginRight: "6px", color: "#A1A1AA" }}>{k.replace('_', ' ')}</span>
+                  <strong>{v}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginTop: "6px" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#E4E4E7", marginBottom: "10px" }}>
               Recipient Activity
@@ -128,6 +164,7 @@ export default function CampaignAnalyticsPage() {
                     <th style={{ textAlign: "left", padding: "10px" }}>Clicked</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Bounced</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Unsubscribed</th>
+                    <th style={{ textAlign: "left", padding: "10px" }}>Sources</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,11 +177,12 @@ export default function CampaignAnalyticsPage() {
                       <td style={{ padding: "10px", color: r.clicked ? "#22C55E" : "#71717A" }}>{r.clicked ? "Yes" : "No"}</td>
                       <td style={{ padding: "10px", color: r.bounced ? "#F87171" : "#71717A" }}>{r.bounced ? "Yes" : "No"}</td>
                       <td style={{ padding: "10px", color: r.unsubscribed ? "#F59E0B" : "#71717A" }}>{r.unsubscribed ? "Yes" : "No"}</td>
+                      <td style={{ padding: "10px", color: "#A1A1AA" }}>{(r.sources || ["unknown"]).join(", ")}</td>
                     </tr>
                   ))}
                   {recipients.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ padding: "12px", textAlign: "center", color: "#71717A" }}>No recipient activity yet.</td>
+                      <td colSpan={8} style={{ padding: "12px", textAlign: "center", color: "#71717A" }}>No recipient activity yet.</td>
                     </tr>
                   )}
                 </tbody>

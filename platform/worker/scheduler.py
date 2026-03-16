@@ -11,6 +11,7 @@ import asyncio
 import os
 import uuid
 import logging
+import httpx
 from datetime import datetime, timezone
 from typing import List, Dict
 
@@ -148,6 +149,9 @@ async def run_scheduler():
         os.getenv("SUPABASE_URL"),
         os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
+    # Force HTTP/1.1 to avoid stale HTTP/2 ConnectionTerminated errors
+    _http1 = httpx.Client(transport=httpx.HTTPTransport(http2=False), timeout=30.0)
+    db.postgrest.session = _http1
     logger.info(f"📅 Scheduler started — polling every {POLL_INTERVAL}s")
 
     while True:

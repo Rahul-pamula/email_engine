@@ -3,35 +3,34 @@
 ==============================================================
 
 --------------------------------------------------------------
-STEP 0: START ALL SERVICES (in this order!)
+STEP 0: START ALL SERVICES
 --------------------------------------------------------------
+
+Tracking API → Supabase Edge Functions (always on, no tunnel needed)
+  URL: https://iiweorjzoxcfaedsubxu.supabase.co/functions/v1
+  API_URL in .env is already set — nothing to start!
 
 Terminal 1 (API Server)
   cd /Users/pamula/Desktop/Sh_R_Mail/platform/api
   source /Users/pamula/Desktop/Sh_R_Mail/.venv/bin/activate
   uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-Terminal 2 (Auto Tunnel) ⚠️ Wait for the public URL before starting Terminal 3!
-  cd /Users/pamula/Desktop/Sh_R_Mail
-  source .venv/bin/activate
-  python auto_tunnel.py
-
-Terminal 3 (Email Sender Worker) ⚠️ Must start AFTER tunnel!
+Terminal 2 (Email Sender Worker)
   cd /Users/pamula/Desktop/Sh_R_Mail/platform/worker
   source /Users/pamula/Desktop/Sh_R_Mail/.venv/bin/activate
   python email_sender.py
 
-Terminal 4 (Background Worker)
+Terminal 3 (Background Worker)
   cd /Users/pamula/Desktop/Sh_R_Mail/platform/worker
   source /Users/pamula/Desktop/Sh_R_Mail/.venv/bin/activate
   python background_worker.py
 
-Terminal 5 (Scheduler)
+Terminal 4 (Scheduler)
   cd /Users/pamula/Desktop/Sh_R_Mail/platform/worker
   source /Users/pamula/Desktop/Sh_R_Mail/.venv/bin/activate
   python scheduler.py
 
-Terminal 6 (Frontend)
+Terminal 5 (Frontend)
   cd /Users/pamula/Desktop/Sh_R_Mail/platform/client
   npm run dev
 

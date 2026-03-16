@@ -1,4 +1,5 @@
 import os
+import httpx
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -10,7 +11,17 @@ class SupabaseManager:
         key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+
+        # Force HTTP/1.1 to avoid httpx HTTP/2 stale-connection drops.
+        # Supabase closes idle HTTP/2 streams, causing RemoteProtocolError:
+        # ConnectionTerminated. HTTP/1.1 uses simple request/response — no issue.
+        http1_transport = httpx.HTTPTransport(http2=False)
+        http1_client = httpx.Client(transport=http1_transport, timeout=30.0)
+
         self.client: Client = create_client(url, key)
+        # Swap the underlying httpx session on the postgrest client to HTTP/1.1
+        self.client.postgrest.session = http1_client
+
 
     def bulk_insert_contacts(self, project_id: str, contacts: list):
         """

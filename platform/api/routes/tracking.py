@@ -36,32 +36,61 @@ BOT_UA_FRAGMENTS = [
     "ggpht.com",          # Gmail Image Proxy alternate identifier
     "yahoo link preview", # Yahoo Mail proxy
     "yahooproxy",         # Yahoo proxy
-    "applebot",           # Apple bot
-# Generic automation / dev tools
+    "applebot",           # Apple bot / MPP fetcher
+    # Generic automation / dev tools
     "preview", "scanner", "curl", "python-requests", "go-http-client",
     "postmanruntime", "axios", "okhttp", "facebookexternalhit",
 ]
 
 # IP prefixes used by major email clients for image proxying
-PROXY_IP_PREFIXES = [
-    # Google Image Proxy (Gmail)
+PROXY_IP_PREFIXES_GMAIL = [
     "66.249.84.", "66.249.85.", "66.249.89.", "66.249.91.",
     "72.14.199.", "74.125.", "104.28.", "108.177.",
-    # Yahoo
+]
+PROXY_IP_PREFIXES_YAHOO = [
     "216.39.62.", "66.218.66.",
+]
+PROXY_IP_PREFIXES_APPLE = [
+    "17.",  # Apple IP space (broad)
+]
+PROXY_IP_PREFIXES_OUTLOOK = [
+    "40.", "52.", "13.107.", "204.79.", "207.46.", "20.",  # MS / Outlook / Defender ranges (broad)
 ]
 
 TRACKING_SECRET = os.getenv("TRACKING_SECRET", "dev-tracking-secret")
+TEST_BYPASS = os.getenv("TRACKING_TEST_BYPASS", "0") == "1"
 
-def _is_bot(user_agent: str, ip: str = "") -> bool:
+def _classify_source(user_agent: str, ip: str, honeypot: bool, rapid_click: bool) -> tuple[str, bool]:
     ua = (user_agent or "").lower()
+    ip = ip or ""
+
+    if honeypot:
+        return "honeypot", True
+
+    if rapid_click:
+        return "scanner", True
+
+    # Gmail proxy
+    if any(ip.startswith(p) for p in PROXY_IP_PREFIXES_GMAIL) or "googleimageproxy" in ua or "ggpht.com" in ua:
+        return "gmail_proxy", True
+
+    # Apple Mail Privacy Protection
+    if any(ip.startswith(p) for p in PROXY_IP_PREFIXES_APPLE) or "applebot" in ua:
+        return "apple_mpp", True
+
+    # Outlook/Defender
+    if any(ip.startswith(p) for p in PROXY_IP_PREFIXES_OUTLOOK) or "safelinks" in ua or "microsoft" in ua:
+        return "outlook_proxy", True
+
+    # Yahoo proxy
+    if any(ip.startswith(p) for p in PROXY_IP_PREFIXES_YAHOO) or "yahooproxy" in ua:
+        return "yahoo_proxy", True
+
+    # Generic bot UA
     if any(frag in ua for frag in BOT_UA_FRAGMENTS):
-        return True
-        
-    if ip and any(ip.startswith(prefix) for prefix in PROXY_IP_PREFIXES):
-        return True
-        
-    return False
+        return "scanner", True
+
+    return "human", False
 
 
 
@@ -71,7 +100,8 @@ def _record_event(
     url: str | None,
     ip: str,
     user_agent: str,
-    force_bot: bool = False,
+    source: str,
+    is_bot: bool,
 ) -> None:
     """Fire-and-forget: record tracking event in email_events table."""
     try:
@@ -100,8 +130,6 @@ def _record_event(
             return
 
         tenant_id = camp.data[0]["tenant_id"]
-        is_bot    = force_bot or _is_bot(user_agent, ip)
-
         # Bot detection for click: check if there was a recent open
         # If no open exists yet for this dispatch, it may be a scanner prefetch
         if event_type == "click":
@@ -124,7 +152,7 @@ def _record_event(
                     now_dt = datetime.datetime.now(timezone.utc)
                     delta = (now_dt - open_dt).total_seconds()
                     if delta < 2:
-                        is_bot = True  # Too fast → scanner
+                        source, is_bot = "scanner", True  # Too fast → scanner
                 except Exception:
                     pass
 
@@ -138,6 +166,7 @@ def _record_event(
             "ip_address":  ip,
             "user_agent":  user_agent,
             "is_bot":      is_bot,
+            "source":      source,
         }).execute()
 
         logger.info(f"[TRACK] {event_type} | dispatch={dispatch_id} | bot={is_bot}")
@@ -170,7 +199,13 @@ async def track_open(dispatch_id: str, request: Request, s: str | None = Query(N
 
     _verify_signature(dispatch_id, None, s)
 
-    _record_event(dispatch_id, "open", None, ip, user_agent)
+    # Testing bypass for local QA
+    if TEST_BYPASS and (ip.startswith("127.") or ip == "localhost"):
+        source, is_bot = "human", False
+    else:
+        source, is_bot = _classify_source(user_agent, ip, honeypot=False, rapid_click=False)
+
+    _record_event(dispatch_id, "open", None, ip, user_agent, source, is_bot)
 
     return Response(
         content=PIXEL_GIF,
@@ -211,6 +246,13 @@ async def track_click(
 
     _verify_signature(d, u, s)
 
-    _record_event(d, "click", destination, ip, user_agent, force_bot=bool(hp))
+    rapid_click = False
+    # rapid_click is checked inside _record_event via recent open; but we also mark honeypot here
+    if TEST_BYPASS and (ip.startswith("127.") or ip == "localhost"):
+        source, is_bot = "human", False
+    else:
+        source, is_bot = _classify_source(user_agent, ip, honeypot=bool(hp), rapid_click=rapid_click)
+
+    _record_event(d, "click", destination, ip, user_agent, source, is_bot)
 
     return RedirectResponse(url=destination, status_code=302)

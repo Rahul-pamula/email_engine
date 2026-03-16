@@ -6,9 +6,11 @@ import os
 import json
 import logging
 import ssl
+import httpx
 import aio_pika
 import uuid
 import redis.asyncio as redis
+from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import random
@@ -26,8 +28,9 @@ ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-# Load environment variables (assume running from root or .env is provided)
-load_dotenv()
+# Load environment variables from repo root
+ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=ROOT_ENV, override=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] Worker: %(message)s")
 logger = logging.getLogger(__name__)
@@ -108,6 +111,9 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 # Initialize Clients
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 db: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Force HTTP/1.1 on DB client to avoid stale HTTP/2 ConnectionTerminated errors
+_http1 = httpx.Client(transport=httpx.HTTPTransport(http2=False), timeout=30.0)
+db.postgrest.session = _http1
 
 # RabbitMQ settings
 EXCHANGE_NAME = "campaign_exchange"

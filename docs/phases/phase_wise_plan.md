@@ -198,9 +198,9 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
 ─────────────────────────────────────────
 🏗 PHASE 1.5 — Auth Cleanup
   [BACKEND]
-  - [ ] Remove custom /auth/forgot-password endpoint
-  - [ ] Remove custom /auth/reset-password endpoint
-  - [ ] Audit logs table (record: who did what, when, on which record)
+  - [x] Remove custom /auth/forgot-password endpoint
+  - [x] Remove custom /auth/reset-password endpoint
+  - [x] Audit logs table (record: who did what, when, on which record)
       → Log: contact deletes, campaign sends, plan changes, login events
       → Columns: tenant_id, user_id, action, resource_type, resource_id, timestamp
       → PRIVACY RULE: Never log sensitive data (no CSV content, no email body)
@@ -208,12 +208,13 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
       → Never log: actual email addresses, CSV rows, email HTML content ❌
 
   [FRONTEND]
-  - [ ] Configure Supabase Auth SMTP to use `shrmail.app@gmail.com` (Centralized System Emailer)
-  - [ ] Fix forgot-password page → use Supabase Auth built-in reset email flow
-  - [ ] Fix reset-password page → complete Supabase Auth password update
-  - [ ] Enable Social Auth (Google, GitHub) via Supabase Dashboard
-  - [ ] Test: sign up → verify email → login → forgot password → reset
-  - [ ] Audit log viewer (admin can see who deleted 10,000 contacts and when)
+  - [x] Configure Supabase Auth SMTP to use `shrmail.app@gmail.com` (Centralized System Emailer)
+  - [x] Fix forgot-password page → use Supabase Auth built-in reset email flow
+  - [x] Fix reset-password page → complete Supabase Auth password update
+  - [x] Enable Social Auth (Google, GitHub) via Supabase Dashboard
+  - [x] Test: sign up → verify email → login → forgot password → reset
+  - [x] Audit log viewer (admin can see who deleted 10,000 contacts and when)
+
 
 ─────────────────────────────────────────
 🏗 PHASE 1.6 — GDPR / Legal Compliance

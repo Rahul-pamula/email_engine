@@ -6,7 +6,7 @@ Endpoints:
   GET /analytics/sender-health    → tenant-wide reputation metrics
   GET /analytics/campaigns/{id}/recipients → per-recipient event breakdown
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from utils.jwt_middleware import require_active_tenant
 from utils.supabase_client import db
 import logging
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 @router.get("/campaigns/{campaign_id}")
 async def get_campaign_analytics(
     campaign_id: str,
+    view: str = Query("human", regex="^(human|all)$"),
     tenant_id: str = Depends(require_active_tenant)
 ):
     """
@@ -55,12 +56,13 @@ async def get_campaign_analytics(
         .execute()
     failed = failed_res.count or 0
 
-    # Fetch all non-bot tracking events for this campaign
-    events_res = db.client.table("email_events")\
-        .select("event_type, contact_id, dispatch_id")\
-        .eq("campaign_id", campaign_id)\
-        .eq("is_bot", False)\
-        .execute()
+    # Fetch tracking events (human-only by default)
+    events_query = db.client.table("email_events")\
+        .select("event_type, contact_id, dispatch_id, source")\
+        .eq("campaign_id", campaign_id)
+    if view == "human":
+        events_query = events_query.eq("is_bot", False)
+    events_res = events_query.execute()
 
     events = events_res.data or []
 
@@ -103,6 +105,16 @@ async def get_campaign_analytics(
             "click_to_open":   rate(unique_clicks, unique_opens),
             "bounce_rate":     rate(len(bounces) + failed, sent),
             "unsubscribe_rate": rate(len(unsubs), sent),
+            "view": view,
+        },
+        "sources": {
+            "gmail_proxy": sum(1 for e in deduped_events if e.get("source") == "gmail_proxy"),
+            "apple_mpp":   sum(1 for e in deduped_events if e.get("source") == "apple_mpp"),
+            "outlook":     sum(1 for e in deduped_events if e.get("source") == "outlook_proxy"),
+            "yahoo":       sum(1 for e in deduped_events if e.get("source") == "yahoo_proxy"),
+            "scanner":     sum(1 for e in deduped_events if e.get("source") == "scanner"),
+            "honeypot":    sum(1 for e in deduped_events if e.get("source") == "honeypot"),
+            "human":       sum(1 for e in deduped_events if e.get("source") == "human"),
         }
     }
 
@@ -112,6 +124,7 @@ async def get_campaign_analytics(
 @router.get("/campaigns/{campaign_id}/recipients")
 async def get_campaign_recipients(
     campaign_id: str,
+    view: str = Query("human", regex="^(human|all)$"),
     tenant_id: str = Depends(require_active_tenant)
 ):
     """
@@ -137,24 +150,27 @@ async def get_campaign_recipients(
     dispatches = {d["id"]: d for d in (dispatch_res.data or [])}
 
     # Tracking events
-    events_res = db.client.table("email_events")\
-        .select("dispatch_id, event_type, contact_id")\
-        .eq("campaign_id", campaign_id)\
-        .eq("is_bot", False)\
-        .execute()
+    events_q = db.client.table("email_events")\
+        .select("dispatch_id, event_type, contact_id, source")\
+        .eq("campaign_id", campaign_id)
+    if view == "human":
+        events_q = events_q.eq("is_bot", False)
+    events_res = events_q.execute()
 
     # Group events by dispatch_id
     events_by_dispatch: dict = {}
     for e in (events_res.data or []):
         did = e["dispatch_id"]
         if did not in events_by_dispatch:
-            events_by_dispatch[did] = set()
-        events_by_dispatch[did].add(e["event_type"])
+            events_by_dispatch[did] = []
+        events_by_dispatch[did].append(e)
 
     recipients = []
     for did, d in dispatches.items():
         contact = d.get("contacts") or {}
-        event_types = events_by_dispatch.get(did, set())
+        event_list = events_by_dispatch.get(did, [])
+        event_types = {e["event_type"] for e in event_list}
+        sources = {e.get("source", "unknown") for e in event_list}
         recipients.append({
             "dispatch_id":  did,
             "contact_id":   d.get("subscriber_id"),
@@ -165,9 +181,10 @@ async def get_campaign_recipients(
             "clicked":      "click" in event_types,
             "bounced":      d.get("status") == "FAILED" or "bounce" in event_types,
             "unsubscribed": "unsubscribe" in event_types,
+            "sources":      list(sources),
         })
 
-    return {"recipients": recipients, "total": len(recipients)}
+    return {"recipients": recipients, "total": len(recipients), "view": view}
 
 
 # ── Sender Health (Tenant-Wide Reputation) ────────────────────────────────────

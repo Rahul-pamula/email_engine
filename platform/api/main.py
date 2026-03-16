@@ -1,4 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.responses import JSONResponse
+import httpx
+import httpcore
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -9,10 +12,12 @@ from contextlib import asynccontextmanager
 from typing import Optional
 from pydantic import BaseModel
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
-load_dotenv()
+ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=ROOT_ENV, override=True)
 
 # Structured logging
 import logging
@@ -110,6 +115,24 @@ app = FastAPI(
 # Add rate limit exceeded handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── HTTP/2 stale-connection retry middleware ─────────────────────────────────
+# Supabase closes idle HTTP/2 connections. When the pool reuses a dead stream,
+# httpx raises RemoteProtocolError. We catch it here and retry ONCE — from the
+# user's perspective the request just works on the first try.
+@app.middleware("http")
+async def retry_on_connection_error(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except (httpx.RemoteProtocolError, httpcore.RemoteProtocolError):
+        logging.getLogger("email_engine").warning(
+            f"[retry] Stale HTTP/2 connection on {request.url.path} — retrying once"
+        )
+        try:
+            return await call_next(request)
+        except Exception as e:
+            logging.getLogger("email_engine").error(f"[retry] Second attempt also failed: {e}")
+            return JSONResponse(status_code=503, content={"detail": "Service temporarily unavailable. Please try again."})
 
 # Mount static files directory for assets
 # The directory "assets" will be served at /static/assets
