@@ -13,10 +13,9 @@
   <!-- View Mode -->
   <div *ngIf="!isEditing" class="flex-grow min-w-0 pr-2">
     <p 
-      class="text-sm font-medium truncate transition-colors duration-200"
+      class="text-sm font-medium whitespace-pre-wrap break-words transition-colors duration-200"
       [ngClass]="{'text-gray-400 line-through': task.done, 'text-gray-200': !task.done}"
-      [title]="task.text">
-      {{ task.text }}
+      [innerHTML]="task.text">
     </p>
   </div>
 
