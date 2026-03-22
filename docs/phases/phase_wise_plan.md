@@ -153,8 +153,8 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   - Onboarding UI: `platform/client/src/app/onboarding/*`
 
   [BACKEND]
-  - [x] Custom email/password auth
-      → `bcrypt` hashing + custom JWTs
+  - [x] Custom email/password auth (Local Database)
+      → `bcrypt` hashing + custom JWTs (Digest Tokens)
   - [x] Tenant membership model
       → `users`, `tenants`, `tenant_users`
   - [x] Onboarding flow exists
@@ -171,6 +171,7 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   [FRONTEND]
   - [x] Login page
   - [x] Signup page
+  - [ ] reCAPTCHA ("I'm not a robot") integration on Signup form
   - [x] Onboarding wizard exists
       → `workspace`, `use-case`, `integrations`, `scale`, `complete`
   - [x] Interactive onboarding checklist exists on dashboard
@@ -200,6 +201,7 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   [BACKEND]
   - [x] Remove custom /auth/forgot-password endpoint
   - [x] Remove custom /auth/reset-password endpoint
+  - [ ] reCAPTCHA token verification endpoint/middleware
   - [x] Audit logs table (record: who did what, when, on which record)
       → Log: contact deletes, campaign sends, plan changes, login events
       → Columns: tenant_id, user_id, action, resource_type, resource_id, timestamp
@@ -211,7 +213,7 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   - [x] Configure Supabase Auth SMTP to use `shrmail.app@gmail.com` (Centralized System Emailer)
   - [x] Fix forgot-password page → use Supabase Auth built-in reset email flow
   - [x] Fix reset-password page → complete Supabase Auth password update
-  - [x] Enable Social Auth (Google, GitHub) via Supabase Dashboard
+  - [x] Enable Social Auth (Google, GitHub) via Supabase Dashboard (OAuth 2.0 Integration for SSO)
   - [x] Test: sign up → verify email → login → forgot password → reset
   - [x] Audit log viewer (admin can see who deleted 10,000 contacts and when)
 
@@ -399,9 +401,10 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
 ✅ PHASE 6 — Observability & Analytics
   [BACKEND]
   - [x] Open tracking pixel endpoint (HMAC-signed, bot-filtered)
-  - [x] Click tracking redirect endpoint (HMAC + honeypot)
-  - [x] Webhook ingestion (SES bounce/complaint already in Phase 4)
-  - [x] Stats aggregation (sent, opens, clicks, bounces per campaign)
+  - [x] Click tracking redirect endpoint (API exists, but DISABLED in worker to save Edge Function invocations/costs. Only opens, bounces, and unsubscribes are actively tracked.)
+  - [x] Webhook ingestion (SES bounce/complaint already in Phase 4) - Bounces are captured natively via SES webhooks directly to the backend bypassing Edge Functions.
+  - [x] Unsubscribe handling - Unsubscribe links are forcefully injected by the worker into both HTML and plain-text emails at dispatch time.
+  - [x] Stats aggregation (sent, opens, bounces, unsubscribes per campaign)
   - [x] Contact activity log (recipient timeline in analytics API/UI)
   - [x] Bot/Scanner detection:
       → If click happens < 2 seconds after open OR honeypot → mark as bot, exclude from stats
@@ -506,6 +509,8 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
   - [x] GDPR Right-to-Erase (anonymize contact PII)
   - [x] Data Export button (CSV export of all contacts)
   - [x] Compliance checklist page (/settings/compliance)
+  - [ ] Multi-Factor Authentication (MFA)
+      → Enforce 2FA via Authenticator App (TOTP) for Workspace Admins
 
   [PHASE 8C: DEVELOPER TOOLS & DELIVERABILITY]
   - [x] API Keys page (generate, view, revoke keys — SHA-256 hashed)
@@ -567,6 +572,8 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
        on their email domain, without compromising email infrastructure security.
 
   [BACKEND & SECURITY ARCHITECTURE]
+  - [ ] Enterprise SSO (SAML / LDAP) Integration
+      → Allow corporate tenants to connect their Active Directory to Supabase Auth
   - [ ] PDEP Filter (Public/Disposable Email Provider)
       → Block @gmail.com, @yahoo.com from triggering JIT discovery logic.
   - [ ] Verification-Before-Disclosure (VBD)

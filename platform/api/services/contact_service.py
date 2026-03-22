@@ -11,7 +11,7 @@ Production Hardened:
 - Contact status management (subscribed/unsubscribed/bounced/complained)
 """
 from typing import Any, Dict, List, Optional, Tuple
-from utils.supabase_client import db
+from utils.supabase_client import db  # type: ignore
 import re
 import logging
 from collections import Counter
@@ -115,7 +115,7 @@ class ContactService:
         # Query in batches of 100 to avoid query size limits
         existing_count = 0
         for i in range(0, len(emails), 100):
-            batch = emails[i:i+100]
+            batch = emails[i:i+100]  # type: ignore
             result = db.client.table("contacts")\
                 .select("email", count="exact")\
                 .eq("tenant_id", tenant_id)\
@@ -196,7 +196,7 @@ class ContactService:
         }
     
     @staticmethod
-    def bulk_upsert(tenant_id: str, contacts: List[Dict], import_batch_id: str = None) -> Dict:
+    def bulk_upsert(tenant_id: str, contacts: List[Dict], import_batch_id: Optional[str] = None) -> Dict:
         """
         Bulk insert/update contacts with validation.
         
@@ -246,7 +246,7 @@ class ContactService:
                 unique_contacts.append(contact)
         
         # Count how many already exist in DB → only NEW ones count against limit
-        all_emails = [c["email"] for c in unique_contacts]
+        all_emails = [str(c["email"]) for c in unique_contacts if c.get("email")]
         existing_count = ContactService._count_existing_emails(tenant_id, all_emails)
         new_count = len(unique_contacts) - existing_count
         
@@ -267,7 +267,7 @@ class ContactService:
         total_inserted = 0
         if unique_contacts:
             for i in range(0, len(unique_contacts), BATCH_SIZE):
-                batch = unique_contacts[i:i + BATCH_SIZE]
+                batch = unique_contacts[i:i + BATCH_SIZE]  # type: ignore
                 try:
                     result = db.client.table("contacts")\
                         .upsert(batch, on_conflict="tenant_id,email")\
@@ -468,7 +468,7 @@ class ContactService:
         import io
         
         result = db.client.table("contacts")\
-            .select("email, first_name, last_name, status, custom_fields, tags, created_at")\
+            .select("email, first_name, last_name, status, bounce_reason, custom_fields, tags, created_at")\
             .eq("tenant_id", tenant_id)\
             .execute()
             
@@ -477,13 +477,14 @@ class ContactService:
         # Determine all possible custom fields across all contacts
         all_custom_keys = set()
         for c in contacts:
-            if c.get("custom_fields"):
-                all_custom_keys.update(c["custom_fields"].keys())
+            custom_fields = c.get("custom_fields")
+            if isinstance(custom_fields, dict):
+                all_custom_keys.update(custom_fields.keys())
         
         custom_keys = sorted(list(all_custom_keys))
         
         # Build headers
-        headers = ["Email", "First Name", "Last Name", "Status", "Tags", "Date Added"] + custom_keys
+        headers = ["Email", "First Name", "Last Name", "Status", "Bounce Reason", "Tags", "Date Added"] + custom_keys
         
         output = io.StringIO()
         writer = csv.writer(output)
@@ -495,6 +496,7 @@ class ContactService:
                 c.get("first_name", ""),
                 c.get("last_name", ""),
                 c.get("status", ""),
+                c.get("bounce_reason", ""),
                 ", ".join(c.get("tags") or []),
                 c.get("created_at", "")
             ]

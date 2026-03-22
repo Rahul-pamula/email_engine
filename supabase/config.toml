@@ -40,3 +40,6 @@ inspector_port = 8083
 
 [analytics]
 enabled = false
+
+[functions.track]
+verify_jwt = false
