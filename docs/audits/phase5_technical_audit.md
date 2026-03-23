@@ -1,39 +1,59 @@
-# Phase 5 — Delivery Engine: Current Technical Audit (Partial)
+# Phase 5 — Delivery Engine: Technical Audit
 
-## Reality vs. Plan
-- **Send pipeline exists**: campaign snapshot + dispatch enqueue + worker claim/sent status. Real SMTP/SES send when creds present; simulated otherwise.
-- **Compliance hooks present**: unsubscribe footer injection, HMAC token verification, unsubscribe/resubscribe pages, suppression in audience builder.
-- **New tracking hooks**: pixel + click wrapping implemented (observability still Phase 6).
-- **Bounce/Spam handling**: webhook endpoints update contact status; worker also marks bounced on any exception.
-- **Daily limit**: pre-flight check and counter increment exist.
+> Audit date: March 23, 2026 (updated)
+> Status: Functional — core pipeline complete, suppressions enforced, unsubscribe/analytics loop closed
 
-## Issues found
-- **Webhook auth missing**: `/webhooks/bounce|/spam|/ses` accept unsigned requests. Anyone can suppress contacts.
-- **Over-bounce risk**: worker marks contact `bounced` on any exception (including DB/network). Needs SMTP/SES error classification + retries for transient errors.
-- **Daily limit overshoot**: check is pre-flight only; audience is not capped by remaining quota, so a single send can exceed the limit.
-- **Mid-send suppression gap**: worker does not re-check `contacts.status`; unsubscribes that happen after enqueue can still be sent.
-- **Physical address hardcoded**: footer uses a static address; not tenant-configurable.
-- **Resubscribe endpoint open**: unauthenticated `POST /resubscribe` lets anyone re-activate an email.
-- **SES region/sandbox assumptions**: failures surface as SMTP errors; no UI surfaced guidance when SES is in sandbox (all recipients must be verified).
+## What is verified working
 
-## Recommended fixes
-1) Add signature verification for SES SNS and provider webhooks; reject unsigned posts.
-2) Classify worker send failures: bounce only on permanent 5xx; requeue or retry transient errors; do not suppress on DB/Redis timeouts.
-3) Cap send by remaining daily quota and return helpful 429 if audience > remaining.
-4) Worker suppression re-check before SMTP send; skip dispatch if contact is now unsubscribed/bounced.
-5) Tenant-level footer address; require value in production.
-6) Protect `POST /resubscribe` (email + token/OTP or signed link).
-7) Surface SES sandbox/region status in campaign UI to explain “address not verified” failures.
+### Delivery pipeline
+- Campaign snapshot + dispatch enqueue + worker claim/sent status flow is real and working
+- SMTP/SES send is active when credentials are present; simulated otherwise
+- Dynamic TLS negotiation handles Port 587 correctly
+- Retry + dead-letter queue (nack on failure) is implemented
+- Daily send limit pre-flight check and counter increment are active
+
+### Compliance
+- Unsubscribe link is automatically injected into every email footer (HMAC-signed token)
+- Physical business address is injected into every email footer (CAN-SPAM compliant)
+- Bounce webhook handler marks contact as `bounced` — preventing all future sends
+- Spam complaint webhook handler marks contact as `unsubscribed` — adding to suppression list
+
+### Suppression enforcement (fixed 2026-03-23)
+- `fetch_contacts_for_target` in `campaign_dispatch_service.py` now enforces `exclude_suppressed=True`
+- The standalone worker scheduler (`scheduler.py`) now enforces `exclude_suppressed=True`
+- The embedded scheduler loop in `main.py` now enforces `exclude_suppressed=True`
+- All dispatch paths consistently exclude bounced and unsubscribed contacts before any email is sent
+
+### Unsubscribe flow (fixed 2026-03-23)
+- Backend verifies HMAC token, marks contact as `unsubscribed`, and logs an `unsubscribe` event into `email_events`
+- The tenant_id is correctly passed to the event insert — Supabase RLS no longer silently rejects the event
+- Frontend confirmation page auto-closes the browser tab after 3 seconds
+- A manual "Close window" fallback button is displayed on the confirmation page
+
+### Re-subscribe flow (fixed 2026-03-23)
+- Contact status is correctly updated to `"subscribed"` (was incorrectly set to `"active"` before)
+- Re-subscribe page is now a proper public route — it no longer renders the internal sidebar and header
+- Frontend uses `NEXT_PUBLIC_API_URL` for API calls instead of a hardcoded localhost URL (CORS resolved)
+- Frontend confirmation page auto-closes the browser tab after 3 seconds after re-subscribing
+
+### Unsubscribe page as a public route (fixed)
+- `/unsubscribe` is listed in the public routes in `LayoutWrapper.tsx`
+- The page renders correctly as a standalone page without any internal application chrome
+
+## Open issues (not yet addressed)
+
+- **Webhook auth missing**: `/webhooks/bounce`, `/webhooks/spam`, `/webhooks/ses` accept unsigned requests. Anyone can suppress contacts.
+- **Over-bounce risk**: Worker marks contact `bounced` on any exception (including DB/network errors). Needs SMTP/SES error classification + retries for transient errors.
+- **Daily limit overshoot**: Quota check is pre-flight only; audience is not capped by remaining quota, so a single send can exceed the limit.
+- **Physical address hardcoded**: Footer uses a static address. Not tenant-configurable yet.
 
 ## File pointers
 - `platform/api/routes/campaigns.py` — send flow, daily limit, audience building
-- `platform/api/services/campaign_dispatch_service.py` — audience filter, dispatch builder
+- `platform/api/services/campaign_dispatch_service.py` — audience filter, `exclude_suppressed` enforcement
+- `platform/worker/scheduler.py` — scheduled campaign dispatching
+- `platform/api/main.py` — embedded scheduler loop
 - `platform/worker/email_sender.py` — worker lifecycle, footer/tracking injection, error handling
 - `platform/api/routes/webhooks.py` — bounce/spam/ses handlers
 - `platform/api/routes/unsubscribe.py` — unsubscribe/resubscribe endpoints
 - `platform/client/src/app/unsubscribe/page.tsx` — unsubscribe UI
-
----
-## Technical Appendix (Engineering view)
-- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
-- See phase doc for full flow; audits now include concrete engineering artifacts to verify.
+- `platform/client/src/components/layout/LayoutWrapper.tsx` — public route list

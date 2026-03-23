@@ -20,13 +20,12 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 @router.get("/campaigns/{campaign_id}")
 async def get_campaign_analytics(
     campaign_id: str,
-    view: str = Query("human", regex="^(human|all)$"),
     tenant_id: str = Depends(require_active_tenant)
 ):
     """
     Full analytics for a single campaign.
-    Returns: sent, opens, unique_opens, clicks, unique_clicks, bounces, unsubscribes.
-    All bot events excluded from rates.
+    Returns: sent, opens, unique_opens, bounces, unsubscribes.
+    Includes all proxy/bot events.
     """
     # Verify campaign belongs to tenant
     camp_res = db.client.table("campaigns")\
@@ -56,12 +55,10 @@ async def get_campaign_analytics(
         .execute()
     failed = failed_res.count or 0
 
-    # Fetch tracking events (human-only by default)
+    # Fetch tracking events
     events_query = db.client.table("email_events")\
         .select("event_type, contact_id, dispatch_id, source")\
         .eq("campaign_id", campaign_id)
-    if view == "human":
-        events_query = events_query.eq("is_bot", False)
     events_res = events_query.execute()
 
     events = events_res.data or []
@@ -78,12 +75,20 @@ async def get_campaign_analytics(
 
     # Aggregate (using deduped events only)
     opens        = [e for e in deduped_events if e["event_type"] == "open"]
-    clicks       = [e for e in deduped_events if e["event_type"] == "click"]
     bounces      = [e for e in deduped_events if e["event_type"] == "bounce"]
-    unsubs       = [e for e in deduped_events if e["event_type"] == "unsubscribe"]
+    unsub_events = [e for e in deduped_events if e["event_type"] == "unsubscribe"]
+
+    # Cross-check against current contact status to honour re-subscriptions
+    unsub_contact_ids = [e["contact_id"] for e in unsub_events if e.get("contact_id")]
+    active_unsubs = set()
+    if unsub_contact_ids:
+        status_res = db.client.table("contacts").select("id, status").in_("id", unsub_contact_ids).execute()
+        for c in (status_res.data or []):
+            if c["status"] == "unsubscribed":
+                active_unsubs.add(c["id"])
+    unsubs = [e for e in unsub_events if e.get("contact_id") in active_unsubs]
 
     unique_opens  = len(set(e["contact_id"] for e in opens if e["contact_id"]))
-    unique_clicks = len(set(e["contact_id"] for e in clicks if e["contact_id"]))
 
     def rate(num, denom):
         return round((num / denom) * 100, 2) if denom > 0 else 0.0
@@ -95,17 +100,12 @@ async def get_campaign_analytics(
             "failed":          failed,
             "opens":           len(opens),
             "unique_opens":    unique_opens,
-            "clicks":          len(clicks),
-            "unique_clicks":   unique_clicks,
             "bounces":         len(bounces) + failed,  # SMTP failed = bounce too
             "unsubscribes":    len(unsubs),
             # Rates
             "open_rate":       rate(unique_opens, sent),
-            "click_rate":      rate(unique_clicks, sent),
-            "click_to_open":   rate(unique_clicks, unique_opens),
             "bounce_rate":     rate(len(bounces) + failed, sent),
             "unsubscribe_rate": rate(len(unsubs), sent),
-            "view": view,
         },
         "sources": {
             "gmail_proxy": sum(1 for e in deduped_events if e.get("source") == "gmail_proxy"),
@@ -124,12 +124,11 @@ async def get_campaign_analytics(
 @router.get("/campaigns/{campaign_id}/recipients")
 async def get_campaign_recipients(
     campaign_id: str,
-    view: str = Query("human", regex="^(human|all)$"),
     tenant_id: str = Depends(require_active_tenant)
 ):
     """
     Returns per-recipient status for a campaign:
-    who opened, who clicked, who bounced.
+    who opened, who bounced, who unsubscribed.
     """
     # Verify ownership
     camp_res = db.client.table("campaigns")\
@@ -153,8 +152,6 @@ async def get_campaign_recipients(
     events_q = db.client.table("email_events")\
         .select("dispatch_id, event_type, contact_id, source")\
         .eq("campaign_id", campaign_id)
-    if view == "human":
-        events_q = events_q.eq("is_bot", False)
     events_res = events_q.execute()
 
     # Group events by dispatch_id
@@ -165,26 +162,36 @@ async def get_campaign_recipients(
             events_by_dispatch[did] = []
         events_by_dispatch[did].append(e)
 
+    # ── Also fetch current contact statuses to reflect resubscriptions ──
+    contact_ids = [r.get("subscriber_id") for r in dispatches.values() if r.get("subscriber_id")]
+    status_map: dict = {}
+    if contact_ids:
+        stat_res = db.client.table("contacts").select("id, status").in_("id", contact_ids).execute()
+        for c in (stat_res.data or []):
+            status_map[c["id"]] = c["status"]
+
     recipients = []
     for did, d in dispatches.items():
         contact = d.get("contacts") or {}
         event_list = events_by_dispatch.get(did, [])
         event_types = {e["event_type"] for e in event_list}
         sources = {e.get("source", "unknown") for e in event_list}
+        contact_id = d.get("subscriber_id")
+        # Show unsubscribed = True only if event history has it AND contact is still unsubscribed now
+        current_status = status_map.get(contact_id, "")
         recipients.append({
             "dispatch_id":  did,
-            "contact_id":   d.get("subscriber_id"),
+            "contact_id":   contact_id,
             "email":        contact.get("email", ""),
             "name":         f"{contact.get('first_name','')} {contact.get('last_name','')}".strip(),
             "status":       d.get("status"),
             "opened":       "open" in event_types,
-            "clicked":      "click" in event_types,
             "bounced":      d.get("status") == "FAILED" or "bounce" in event_types,
-            "unsubscribed": "unsubscribe" in event_types,
+            "unsubscribed": "unsubscribe" in event_types and current_status == "unsubscribed",
             "sources":      list(sources),
         })
 
-    return {"recipients": recipients, "total": len(recipients), "view": view}
+    return {"recipients": recipients, "total": len(recipients)}
 
 
 # ── Sender Health (Tenant-Wide Reputation) ────────────────────────────────────

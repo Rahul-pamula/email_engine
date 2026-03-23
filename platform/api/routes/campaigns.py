@@ -44,12 +44,12 @@ from services.campaign_dispatch_service import (
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 
 # === JWT Middleware ===
-from utils.jwt_middleware import require_active_tenant
+from utils.jwt_middleware import require_active_tenant, verify_jwt_token, JWTPayload, require_admin_or_owner, apply_data_isolation
 
 # === Campaign Routes ===
 
 @router.post("/", response_model=dict)
-async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(require_active_tenant)):
+async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """
     Create a new email campaign (Tenant Scoped).
     """
@@ -81,7 +81,8 @@ async def create_campaign(campaign: CampaignCreate, tenant_id: str = Depends(req
         "domain_id": str(campaign.domain_id) if campaign.domain_id else None,
         "status": campaign.status,
         "scheduled_at": campaign.scheduled_at.isoformat() if campaign.scheduled_at else None,
-        "created_at": datetime.now().isoformat()
+        "created_at": datetime.now().isoformat(),
+        "created_by_user_id": jwt_payload.user_id
     }
     
     db.client.table("campaigns").insert(data).execute()
@@ -97,7 +98,8 @@ async def list_campaigns(
     status: Optional[str] = None, 
     page: int = 1,
     limit: int = 20,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """List all campaigns for the specific Tenant (excluding archived) with O(1) Pagination"""
     from utils.supabase_client import db
@@ -111,6 +113,9 @@ async def list_campaigns(
     if status:
         query = query.eq("status", status)
         count_query = count_query.eq("status", status)
+        
+    query = apply_data_isolation(query, jwt_payload)
+    count_query = apply_data_isolation(count_query, jwt_payload)
     
     # Execute Count
     count_res = count_query.execute()
@@ -132,21 +137,27 @@ async def list_campaigns(
     }
 
 @router.get("/{campaign_id}")
-async def get_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def get_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Get a single campaign by ID"""
     from utils.supabase_client import db
     
-    result = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    query = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id)
+    query = apply_data_isolation(query, jwt_payload)
+    result = query.execute()
+    
     if not result.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
     return result.data[0]
 
 @router.get("/{campaign_id}/dispatch")
-async def get_campaign_dispatch(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def get_campaign_dispatch(campaign_id: str, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Get dispatch records for a campaign (for analytics)"""
     from utils.supabase_client import db
-    camp = db.client.table("campaigns").select("id").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    query = db.client.table("campaigns").select("id").eq("id", campaign_id).eq("tenant_id", tenant_id)
+    query = apply_data_isolation(query, jwt_payload)
+    camp = query.execute()
+    
     if not camp.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     result = db.client.table("campaign_dispatch")\
@@ -158,9 +169,15 @@ async def get_campaign_dispatch(campaign_id: str, tenant_id: str = Depends(requi
 
 
 @router.patch("/{campaign_id}")
-async def update_campaign(campaign_id: str, campaign: CampaignUpdate, tenant_id: str = Depends(require_active_tenant)):
+async def update_campaign_patch(campaign_id: str, campaign: CampaignUpdate, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Update an existing campaign"""
     from utils.supabase_client import db
+    
+    # Verify ownership
+    record = db.client.table("campaigns").select("created_by_user_id").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    if not record.data: raise HTTPException(status_code=404, detail="Campaign not found")
+    if jwt_payload.role == "member" and record.data[0].get("created_by_user_id") != jwt_payload.user_id:
+        raise HTTPException(status_code=403, detail="You can only edit campaigns that you created.")
     
     update_data = {k: v for k, v in campaign.model_dump().items() if v is not None}
     
@@ -182,14 +199,17 @@ async def update_campaign(campaign_id: str, campaign: CampaignUpdate, tenant_id:
     return {"status": "updated", "campaign": result.data[0]}
 
 @router.delete("/{campaign_id}")
-async def delete_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def delete_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Delete a draft campaign, or archive a sent campaign"""
     from utils.supabase_client import db
     
-    # Check current status
-    result = db.client.table("campaigns").select("status").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    # Check current status and ownership
+    result = db.client.table("campaigns").select("status, created_by_user_id").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
+        
+    if jwt_payload.role == "member" and result.data[0].get("created_by_user_id") != jwt_payload.user_id:
+        raise HTTPException(status_code=403, detail="You can only delete campaigns that you created.")    
         
     status = result.data[0]["status"]
     
@@ -203,14 +223,17 @@ async def delete_campaign(campaign_id: str, tenant_id: str = Depends(require_act
         return {"status": "archived", "id": campaign_id, "message": "Campaign has been archived."}
 
 @router.put("/{campaign_id}")
-async def update_campaign(campaign_id: str, body: dict, tenant_id: str = Depends(require_active_tenant)):
+async def update_campaign_put(campaign_id: str, body: dict, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Update an existing draft or paused campaign."""
     from utils.supabase_client import db
 
     # Verify ownership and status
-    result = db.client.table("campaigns").select("status").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    result = db.client.table("campaigns").select("status, created_by_user_id").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
+        
+    if jwt_payload.role == "member" and result.data[0].get("created_by_user_id") != jwt_payload.user_id:
+        raise HTTPException(status_code=403, detail="You can only edit campaigns that you created.")
 
     status = result.data[0]["status"]
     if status not in ["draft", "paused"]:
@@ -240,7 +263,7 @@ class ScheduleRequest(BaseModel):
     target_list_id: Optional[str] = "all"
 
 @router.post("/{campaign_id}/schedule")
-async def schedule_campaign(campaign_id: str, request: ScheduleRequest, tenant_id: str = Depends(require_active_tenant)):
+async def schedule_campaign(campaign_id: str, request: ScheduleRequest, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Schedule a draft campaign to be sent at a future date/time."""
     from utils.supabase_client import db
     from datetime import timezone
@@ -277,7 +300,7 @@ async def schedule_campaign(campaign_id: str, request: ScheduleRequest, tenant_i
 
 @router.post("/{campaign_id}/send")
 @limiter.limit("2/minute")
-async def send_campaign(request: Request, campaign_id: str, send_request: SendRequest, tenant_id: str = Depends(require_active_tenant)):
+async def send_campaign(request: Request, campaign_id: str, send_request: SendRequest, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """
     ORCHESTRATION TRIGGER:
     1. Validates campaign status (must be draft).
@@ -408,7 +431,7 @@ async def send_campaign(request: Request, campaign_id: str, send_request: SendRe
     }
 
 @router.post("/{campaign_id}/pause")
-async def pause_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def pause_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Pause an active campaign using Redis"""
     from utils.supabase_client import db
     
@@ -425,7 +448,7 @@ async def pause_campaign(campaign_id: str, tenant_id: str = Depends(require_acti
     return {"status": "paused", "message": "Campaign paused. Workers will park remaining tasks."}
 
 @router.post("/{campaign_id}/resume")
-async def resume_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def resume_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Resume a paused campaign"""
     from utils.supabase_client import db
     
@@ -445,7 +468,7 @@ async def resume_campaign(campaign_id: str, tenant_id: str = Depends(require_act
     return {"status": "resumed", "message": "Campaign resumed. Workers will pick up parked tasks."}
 
 @router.post("/{campaign_id}/cancel")
-async def cancel_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def cancel_campaign(campaign_id: str, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Permanently cancel a campaign"""
     from utils.supabase_client import db
     
@@ -482,11 +505,14 @@ async def cancel_campaign(campaign_id: str, tenant_id: str = Depends(require_act
     return {"status": "cancelled", "message": f"Campaign cancelled. {pending_stopped} pending emails discarded."}
 
 @router.post("/{campaign_id}/preview")
-async def preview_campaign(campaign_id: str, sample_contact: Optional[dict] = None, tenant_id: str = Depends(require_active_tenant)):
+async def preview_campaign(campaign_id: str, sample_contact: Optional[dict] = None, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Preview a campaign with sample data"""
     from utils.supabase_client import db
     
-    campaign = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    query = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id)
+    query = apply_data_isolation(query, jwt_payload)
+    campaign = query.execute()
+    
     if not campaign.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
@@ -514,11 +540,14 @@ class TestEmailRequest(BaseModel):
     recipient_email: str
 
 @router.post("/{campaign_id}/test")
-async def send_test_email(campaign_id: str, request: TestEmailRequest, tenant_id: str = Depends(require_active_tenant)):
+async def send_test_email(campaign_id: str, request: TestEmailRequest, tenant_id: str = Depends(require_active_tenant), jwt_payload: JWTPayload = Depends(verify_jwt_token)):
     """Send a test email for this campaign to a specified address."""
     from utils.supabase_client import db
     
-    campaign = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id).execute()
+    query = db.client.table("campaigns").select("*").eq("id", campaign_id).eq("tenant_id", tenant_id)
+    query = apply_data_isolation(query, jwt_payload)
+    campaign = query.execute()
+    
     if not campaign.data:
         raise HTTPException(status_code=404, detail="Campaign not found")
 

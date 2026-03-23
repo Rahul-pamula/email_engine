@@ -34,7 +34,7 @@ export default function Step1Details({ data, updateData, onNext }: any) {
 
                 if (sendRes.ok) {
                     const json = await sendRes.json();
-                    verifiedSenders = (json.data || []).filter((s: any) => s.is_verified);
+                    verifiedSenders = (json.data || []).filter((s: any) => s.status === 'verified');
                     setSenders(verifiedSenders);
                 }
 

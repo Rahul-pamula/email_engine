@@ -5,17 +5,19 @@ from pydantic import BaseModel
 
 from services.template_service import TemplateService
 from models.template import TemplateCreate, TemplateUpdate
-from utils.jwt_middleware import require_active_tenant
+from utils.jwt_middleware import require_active_tenant, JWTPayload, verify_jwt_token
+from utils.supabase_client import db
 
 router = APIRouter(prefix="/templates", tags=["Templates"])
 
 @router.post("/")
 async def create_template_endpoint(
     template: TemplateCreate,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Create a new template"""
-    result = TemplateService.create_template(tenant_id, template)
+    result = TemplateService.create_template(tenant_id, jwt_payload.user_id, template)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to create template")
     return result
@@ -24,11 +26,12 @@ async def create_template_endpoint(
 async def list_templates_endpoint(
     page: int = 1,
     limit: int = 20,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """List templates with pagination"""
     try:
-        return TemplateService.list_templates(tenant_id, page, limit)
+        return TemplateService.list_templates(tenant_id, jwt_payload, page, limit)
     except Exception as e:
         import traceback
         print(f"ERROR list_templates: {e}")
@@ -38,10 +41,11 @@ async def list_templates_endpoint(
 @router.get("/{template_id}")
 async def get_template_endpoint(
     template_id: str,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Get a template by ID"""
-    result = TemplateService.get_template(tenant_id, template_id)
+    result = TemplateService.get_template(tenant_id, jwt_payload, template_id)
     if not result:
         raise HTTPException(status_code=404, detail="Template not found")
     return result
@@ -50,10 +54,17 @@ async def get_template_endpoint(
 async def update_template_endpoint(
     template_id: str,
     template: TemplateUpdate,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Update a template"""
-    result = TemplateService.update_template(tenant_id, template_id, template)
+    # Restrict members from updating other peoples templates
+    record = db.client.table("templates").select("created_by_user_id").eq("id", template_id).eq("tenant_id", tenant_id).execute()
+    if not record.data: raise HTTPException(status_code=404, detail="Template not found")
+    if jwt_payload.role == "member" and record.data[0].get("created_by_user_id") != jwt_payload.user_id:
+        raise HTTPException(status_code=403, detail="You can only edit templates that you created.")
+
+    result = TemplateService.update_template(tenant_id, template_id, template, jwt_payload)
     if not result:
         raise HTTPException(status_code=404, detail="Template not found")
     return result
@@ -61,9 +72,16 @@ async def update_template_endpoint(
 @router.delete("/{template_id}")
 async def delete_template_endpoint(
     template_id: str,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Delete a template"""
+    # Restrict members from deleting other peoples templates
+    record = db.client.table("templates").select("created_by_user_id").eq("id", template_id).eq("tenant_id", tenant_id).execute()
+    if not record.data: raise HTTPException(status_code=404, detail="Template not found")
+    if jwt_payload.role == "member" and record.data[0].get("created_by_user_id") != jwt_payload.user_id:
+        raise HTTPException(status_code=403, detail="You can only delete templates that you created.")
+
     success = TemplateService.delete_template(tenant_id, template_id)
     if not success:
         raise HTTPException(status_code=404, detail="Template not found")

@@ -6,7 +6,7 @@ from models.template import TemplateCreate, TemplateUpdate
 class TemplateService:
 
     @staticmethod
-    def create_template(tenant_id: str, template: TemplateCreate) -> Dict[str, Any]:
+    def create_template(tenant_id: str, user_id: str, template: TemplateCreate) -> Dict[str, Any]:
         """Create a new template with structured design JSON."""
 
         # Store design_json inside the mjml_json column (JSONB) to avoid DB migration
@@ -21,6 +21,7 @@ class TemplateService:
             "name": template.name,
             "subject": template.subject,
             "category": template.category,
+            "created_by_user_id": user_id,
             "mjml_json": {"design_json": design_data} if design_data else {},
             "mjml_source": "",
             "compiled_html": template.compiled_html or "<p>Loading…</p>",
@@ -37,13 +38,17 @@ class TemplateService:
         return row
 
     @staticmethod
-    def get_template(tenant_id: str, template_id: str) -> Optional[Dict[str, Any]]:
+    def get_template(tenant_id: str, jwt_payload: Any, template_id: str) -> Optional[Dict[str, Any]]:
         """Get a template by ID."""
-        result = db.client.table("templates")\
+        query = db.client.table("templates")\
             .select("*")\
             .eq("tenant_id", tenant_id)\
-            .eq("id", template_id)\
-            .execute()
+            .eq("id", template_id)
+            
+        from utils.jwt_middleware import apply_data_isolation
+        query = apply_data_isolation(query, jwt_payload)
+        
+        result = query.execute()
 
         if not result.data:
             return None
@@ -51,14 +56,18 @@ class TemplateService:
         return TemplateService._unpack_design(result.data[0])
 
     @staticmethod
-    def list_templates(tenant_id: str, page: int = 1, limit: int = 20) -> Dict[str, Any]:
+    def list_templates(tenant_id: str, jwt_payload: Any, page: int = 1, limit: int = 20) -> Dict[str, Any]:
         """List templates with pagination."""
         offset = (page - 1) * limit
 
-        result = db.client.table("templates")\
+        query = db.client.table("templates")\
             .select("*", count="exact")\
-            .eq("tenant_id", tenant_id)\
-            .order("updated_at", desc=True)\
+            .eq("tenant_id", tenant_id)
+            
+        from utils.jwt_middleware import apply_data_isolation
+        query = apply_data_isolation(query, jwt_payload)
+            
+        result = query.order("updated_at", desc=True)\
             .range(offset, offset + limit - 1)\
             .execute()
 
@@ -72,9 +81,9 @@ class TemplateService:
         }
 
     @staticmethod
-    def update_template(tenant_id: str, template_id: str, template: TemplateUpdate) -> Optional[Dict[str, Any]]:
+    def update_template(tenant_id: str, template_id: str, template: TemplateUpdate, jwt_payload: Any) -> Optional[Dict[str, Any]]:
         """Update a template."""
-        existing = TemplateService.get_template(tenant_id, template_id)
+        existing = TemplateService.get_template(tenant_id, jwt_payload, template_id)
         if not existing:
             return None
 

@@ -252,7 +252,8 @@ async def signup(request: Request, body_request: SignupRequest):
             "user_id": user_id,
             "tenant_id": tenant_id,
             "email": body_request.email,
-            "role": role
+            "role": role,
+            "isolation_model": "team"
         }
         
         access_token = create_access_token(token_data)
@@ -351,7 +352,7 @@ async def login(request: Request, body_request: LoginRequest):
     # Get user's primary tenant (first tenant they're a member of)
     # TODO: When implementing multi-tenant support, add tenant selection logic
     tenant_user_result = db.client.table("tenant_users").select(
-        "tenant_id, role"
+        "tenant_id, role, isolation_model"
     ).eq("user_id", user["id"]).order("joined_at").limit(1).execute()
     
     if not tenant_user_result.data:
@@ -400,15 +401,18 @@ async def login(request: Request, body_request: LoginRequest):
     
     if role == "pending":
         tenant_status = "pending_join"
+        isolation_model = "team"
     else:
         tenant_status = tenant_result.data[0]["status"]
+        isolation_model = tenant_user.get("isolation_model", "team")
     
     # Generate JWT token
     token_data = {
         "user_id": user["id"],
         "tenant_id": tenant_id,
         "email": user["email"],
-        "role": role
+        "role": role,
+        "isolation_model": isolation_model
     }
     
     access_token = create_access_token(token_data)
@@ -449,7 +453,7 @@ async def get_user_workspaces(jwt_payload: JWTPayload = Depends(require_authenti
     from utils.supabase_client import db
     
     # Get all tenant links for this user
-    links = db.client.table("tenant_users").select("tenant_id, role").eq("user_id", jwt_payload.user_id).execute()
+    links = db.client.table("tenant_users").select("tenant_id, role, isolation_model").eq("user_id", jwt_payload.user_id).execute()
     if not links.data:
         return []
         
@@ -480,7 +484,7 @@ async def switch_workspace(
     from utils.supabase_client import db
     
     # Verify the user is actually a member of the requested tenant
-    link = db.client.table("tenant_users").select("role").eq("user_id", jwt_payload.user_id).eq("tenant_id", body.tenant_id).execute()
+    link = db.client.table("tenant_users").select("role, isolation_model").eq("user_id", jwt_payload.user_id).eq("tenant_id", body.tenant_id).execute()
     
     if not link.data:
         raise HTTPException(
@@ -489,6 +493,7 @@ async def switch_workspace(
         )
         
     role = link.data[0]["role"]
+    isolation_model = link.data[0].get("isolation_model", "team")
     
     # Get tenant status to ensure it's not suspended
     tenant = db.client.table("tenants").select("status").eq("id", body.tenant_id).execute()
@@ -502,7 +507,8 @@ async def switch_workspace(
         "user_id": jwt_payload.user_id,
         "tenant_id": body.tenant_id,
         "email": jwt_payload.email,
-        "role": role
+        "role": role,
+        "isolation_model": isolation_model
     }
     
     access_token = create_access_token(token_data)
@@ -653,7 +659,7 @@ async def process_oauth_user(email: str, full_name: str, provider: str):
             
         # Get their primary tenant
         tenant_user_result = db.client.table("tenant_users").select(
-            "tenant_id, role"
+            "tenant_id, role, isolation_model"
         ).eq("user_id", user["id"]).order("joined_at").limit(1).execute()
         
         if not tenant_user_result.data:
@@ -673,6 +679,7 @@ async def process_oauth_user(email: str, full_name: str, provider: str):
             tenant_user = tenant_user_result.data[0]
             tenant_id = tenant_user["tenant_id"]
             role = tenant_user["role"]
+            isolation_model = tenant_user.get("isolation_model", "team")
             
             tenant_result = db.client.table("tenants").select("status").eq("id", tenant_id).execute()
             tenant_status = tenant_result.data[0]["status"] if tenant_result.data else "active"
@@ -754,11 +761,13 @@ async def process_oauth_user(email: str, full_name: str, provider: str):
             role = "owner"
 
     # Generate Secure JWT
+    isolation_model = locals().get("isolation_model", "team")
     token_data = {
         "user_id": user_id,
         "tenant_id": tenant_id,
         "email": email,
-        "role": role
+        "role": role,
+        "isolation_model": isolation_model
     }
     
     access_token = create_access_token(token_data)

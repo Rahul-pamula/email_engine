@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Users, Mail, UserPlus, X, Trash2, CheckCircle2, AlertTriangle, Shield, Clock } from 'lucide-react';
+import { Users, Mail, UserPlus, X, Trash2, CheckCircle2, AlertTriangle, Shield, Clock, Building2, Save, Loader2, Check } from 'lucide-react';
 
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -12,6 +12,7 @@ interface Member {
     email: string;
     full_name: string | null;
     role: 'owner' | 'admin' | 'member';
+    isolation_model?: 'team' | 'agency';
     joined_at: string;
 }
 
@@ -33,6 +34,7 @@ export default function TeamSettingsPage() {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
+    const [inviteIsolation, setInviteIsolation] = useState<'team' | 'agency'>('team');
     const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
     // Currently logged-in user's role
@@ -69,7 +71,11 @@ export default function TeamSettingsPage() {
             const res = await fetch(`${API_BASE}/team/invites`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ email: inviteEmail, role: inviteRole })
+                body: JSON.stringify({ 
+                    email: inviteEmail, 
+                    role: inviteRole,
+                    isolation_model: inviteIsolation
+                })
             });
 
             if (!res.ok) throw new Error(await res.text());
@@ -80,6 +86,7 @@ export default function TeamSettingsPage() {
                 setInviteStatus('idle');
                 setInviteEmail('');
                 setInviteRole('member');
+                setInviteIsolation('team');
                 fetchTeam();
             }, 1500);
         } catch (e) {
@@ -138,16 +145,20 @@ export default function TeamSettingsPage() {
         }
     };
 
-    const handleChangeRole = async (userId: string, newRole: string) => {
+    const handleChangeMember = async (userId: string, field: 'role' | 'isolation_model', value: string) => {
         try {
-            await fetch(`${API_BASE}/team/members/${userId}/role`, {
+            const res = await fetch(`${API_BASE}/team/members/${userId}/role`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ role: newRole })
+                body: JSON.stringify({ [field]: value })
             });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || 'Update Failed');
+            }
             fetchTeam();
-        } catch (e) {
-            alert('Failed to update role. You must be an owner.');
+        } catch (e: any) {
+            alert(e.message || 'Failed to update member.');
         }
     };
 
@@ -193,20 +204,37 @@ export default function TeamSettingsPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-4">
+                                
+                                {/* Access Mode Badge/Dropdown */}
+                                {myRole === 'owner' && m.user_id !== user?.userId && m.role !== 'owner' ? (
+                                    <select
+                                        value={m.isolation_model || 'team'}
+                                        onChange={(e) => handleChangeMember(m.user_id, 'isolation_model', e.target.value)}
+                                        className="bg-[var(--bg-secondary)] border border-[var(--border)] text-xs text-[var(--text-primary)] rounded px-2 py-1.5 outline-none focus:border-indigo-500 transition-colors"
+                                    >
+                                        <option value="team">Team Mode</option>
+                                        <option value="agency">Agency Mode</option>
+                                    </select>
+                                ) : (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-secondary)] px-2 py-1 rounded border border-[var(--border)]">
+                                        {m.role === 'owner' ? 'All Access' : `${m.isolation_model || 'team'} mode`}
+                                    </span>
+                                )}
+
                                 {/* Role Badge/Dropdown */}
                                 {myRole === 'owner' && m.user_id !== user?.userId ? (
                                     <select
                                         value={m.role}
-                                        onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
-                                        className="bg-[var(--bg-secondary)] border border-[var(--border)] text-xs text-[var(--text-primary)] rounded px-2 py-1 outline-none focus:border-indigo-500 transition-colors"
+                                        onChange={(e) => handleChangeMember(m.user_id, 'role', e.target.value)}
+                                        className="bg-[var(--bg-secondary)] border border-[var(--border)] text-xs text-[var(--text-primary)] rounded px-2 py-1.5 outline-none focus:border-indigo-500 transition-colors"
                                     >
                                         <option value="owner">Owner</option>
                                         <option value="admin">Admin</option>
                                         <option value="member">Member</option>
                                     </select>
                                 ) : (
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${m.role === 'owner' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md border ${m.role === 'owner' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
                                         m.role === 'admin' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                                             'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
                                         }`}>
@@ -218,7 +246,7 @@ export default function TeamSettingsPage() {
                                 {m.user_id === user?.userId && m.role !== 'owner' && (
                                     <button
                                         onClick={handleLeaveWorkspace}
-                                        className="text-[var(--text-muted)] hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded transition-colors"
+                                        className="text-[var(--text-muted)] hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded transition-colors ml-2"
                                         title="Leave workspace"
                                     >
                                         <Shield className="w-4 h-4 mr-1 inline" />Leave
@@ -229,7 +257,7 @@ export default function TeamSettingsPage() {
                                 {isAdminOrOwner && m.role !== 'owner' && m.user_id !== user?.userId && (
                                     <button
                                         onClick={() => handleRemoveMember(m.user_id)}
-                                        className="text-[var(--text-muted)] hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded transition-colors"
+                                        className="text-[var(--text-muted)] hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded transition-colors ml-2"
                                         title="Remove member"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -290,10 +318,88 @@ export default function TeamSettingsPage() {
                 </div>
             )}
 
+            {/* Permissions Matrix */}
+            <div className="card mt-8">
+                <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] rounded-t-xl flex justify-between items-center">
+                     <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-emerald-400" /> Roles & Isolation Permissions
+                     </h3>
+                </div>
+                <div className="overflow-x-auto bg-[var(--bg-primary)] rounded-b-xl pb-4">
+                    <table className="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr className="border-b border-[var(--border)] text-[var(--text-muted)] select-none">
+                                <th className="px-6 py-4 font-semibold w-[40%]">Action</th>
+                                <th className="px-6 py-4 font-semibold text-center w-[15%] text-amber-500">Owner</th>
+                                <th className="px-6 py-4 font-semibold text-center w-[15%] text-indigo-400">Admin</th>
+                                <th className="px-6 py-4 font-semibold text-center w-[15%] text-sky-400">Team Member</th>
+                                <th className="px-6 py-4 font-semibold text-center w-[15%] text-zinc-400">Agency Member</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border)]">
+                            {/* Campaigns & Contacts */}
+                            <tr className="bg-[var(--bg-secondary)]/50 uppercase text-[10px] tracking-wider font-bold text-[var(--text-muted)]"><td colSpan={5} className="px-6 py-2">Campaigns & Contacts</td></tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">View shared workspace data</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                            </tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">View only own data</td>
+                                <td className="px-6 py-3 text-center"><span className="text-xs text-[var(--text-muted)]">N/A</span></td>
+                                <td className="px-6 py-3 text-center"><span className="text-xs text-[var(--text-muted)]">N/A</span></td>
+                                <td className="px-6 py-3 text-center"><span className="text-xs text-[var(--text-muted)]">N/A</span></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                            </tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">Create campaign / import contacts</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                            </tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">Edit other members' campaigns</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                            </tr>
+                            
+                            {/* Workspace & Team */}
+                            <tr className="bg-[var(--bg-secondary)]/50 uppercase text-[10px] tracking-wider font-bold text-[var(--text-muted)]"><td colSpan={5} className="px-6 py-2">Workspace & Administrative</td></tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">Add / verify sending domain</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                            </tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">Invite / remove members</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                            </tr>
+                            <tr className="hover:bg-[var(--bg-secondary)]/30">
+                                <td className="px-6 py-3 font-medium text-[var(--text-primary)]">Manage isolation modes & roles</td>
+                                <td className="px-6 py-3 text-center"><CheckCircle2 className="w-4 h-4 mx-auto text-emerald-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                                <td className="px-6 py-3 text-center"><X className="w-4 h-4 mx-auto text-red-500" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             {/* Invite Modal */}
             {showInviteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
+                    <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl p-8 max-w-xl w-full shadow-2xl relative">
                         <button
                             onClick={() => setShowInviteModal(false)}
                             className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-white transition-colors p-1"
@@ -307,11 +413,11 @@ export default function TeamSettingsPage() {
                             </div>
                             <h2 className="text-xl font-bold text-white mb-1">Invite Team Member</h2>
                             <p className="text-[var(--text-muted)] text-sm leading-relaxed">
-                                An invitation link will be sent to their email. They will gain access to this workspace's campaigns and domains.
+                                An invitation link will be sent to their email. Set their role and access isolation mode below.
                             </p>
                         </div>
 
-                        <form onSubmit={handleSendInvite} className="space-y-5">
+                        <form onSubmit={handleSendInvite} className="space-y-6">
                             <div>
                                 <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Email Address</label>
                                 <input
@@ -325,35 +431,74 @@ export default function TeamSettingsPage() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Access Role</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {(['member', 'admin'] as const).map(role => (
+                            <div className="grid grid-cols-2 gap-6">
+                                {/* Role Selection */}
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Workspace Role</label>
+                                    <div className="space-y-3">
+                                        {(['member', 'admin'] as const).map(role => (
+                                            <button
+                                                key={role}
+                                                type="button"
+                                                onClick={() => setInviteRole(role)}
+                                                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${inviteRole === role
+                                                    ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
+                                                    : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800'
+                                                    }`}
+                                            >
+                                                <Shield className={`w-4 h-4 shrink-0 ${inviteRole === role ? 'text-indigo-400' : 'text-zinc-500'}`} />
+                                                <div>
+                                                    <div className="text-sm font-semibold capitalize bg-transparent">{role}</div>
+                                                    <div className="text-[10px] leading-tight mt-0.5 opacity-80 bg-transparent">
+                                                        {role === 'admin' ? 'Manage billing & domains' : 'Manage campaigns'}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Isolation Mode Selection */}
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Access Mode</label>
+                                    <div className="space-y-3">
                                         <button
-                                            key={role}
                                             type="button"
-                                            onClick={() => setInviteRole(role)}
-                                            className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-colors ${inviteRole === role
-                                                ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
+                                            onClick={() => setInviteIsolation('team')}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${inviteIsolation === 'team'
+                                                ? 'bg-sky-500/10 border-sky-500 text-sky-300 shadow-[0_0_15px_rgba(14,165,233,0.15)]'
                                                 : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800'
                                                 }`}
                                         >
-                                            <Shield className={`w-4 h-4 ${inviteRole === role ? 'text-indigo-400' : 'text-zinc-500'}`} />
+                                            <Users className={`w-4 h-4 shrink-0 ${inviteIsolation === 'team' ? 'text-sky-400' : 'text-zinc-500'}`} />
                                             <div>
-                                                <div className="text-sm font-semibold capitalize bg-transparent">{role}</div>
-                                                <div className="text-[10px] leading-tight mt-0.5 opacity-80 bg-transparent">
-                                                    {role === 'admin' ? 'Can manage billing & domains' : 'Can manage campaigns'}
-                                                </div>
+                                                <div className="text-sm font-semibold bg-transparent">Team Mode</div>
+                                                <div className="text-[10px] leading-tight mt-0.5 opacity-80 bg-transparent">Shares workspace data</div>
                                             </div>
                                         </button>
-                                    ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setInviteIsolation('agency')}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${inviteIsolation === 'agency'
+                                                ? 'bg-amber-500/10 border-amber-500 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+                                                : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800'
+                                                }`}
+                                        >
+                                            <Building2 className={`w-4 h-4 shrink-0 ${inviteIsolation === 'agency' ? 'text-amber-400' : 'text-zinc-500'}`} />
+                                            <div>
+                                                <div className="text-sm font-semibold bg-transparent">Agency Mode</div>
+                                                <div className="text-[10px] leading-tight mt-0.5 opacity-80 bg-transparent">Sees only own data</div>
+                                            </div>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
                             {inviteStatus === 'error' && (
                                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-xs font-medium mt-2 flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                                    Failed to send invite. They may already be a member.
+                                    Failed to send invite. User may already be isolated.
                                 </div>
                             )}
 
@@ -367,7 +512,7 @@ export default function TeamSettingsPage() {
                             <button
                                 type="submit"
                                 disabled={inviteStatus === 'sending' || inviteStatus === 'success'}
-                                className="w-full btn-premium flex justify-center py-3 mt-2"
+                                className="w-full btn-premium flex justify-center py-3 mt-4"
                                 style={inviteStatus === 'success' ? { background: '#10B981', color: 'white' } : {}}
                             >
                                 {inviteStatus === 'sending' ? (

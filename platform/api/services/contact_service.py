@@ -128,6 +128,7 @@ class ContactService:
     @staticmethod
     def get_contacts(
         tenant_id: str,
+        jwt_payload: Any,
         page: int = 1,
         limit: int = 20,
         search: Optional[str] = None,
@@ -142,6 +143,9 @@ class ContactService:
         query = db.client.table("contacts")\
             .select("id, email, email_domain, first_name, last_name, custom_fields, tags, status, created_at", count="exact")\
             .eq("tenant_id", tenant_id)
+
+        from utils.jwt_middleware import apply_data_isolation
+        query = apply_data_isolation(query, jwt_payload)
 
         if batch_id:
             query = query.eq("import_batch_id", batch_id)
@@ -231,6 +235,8 @@ class ContactService:
                 "first_name": contact.get("first_name", "").strip() or None,
                 "last_name": contact.get("last_name", "").strip() or None
             }
+            if "created_by_user_id" in contact:
+                row["created_by_user_id"] = contact["created_by_user_id"]
             if import_batch_id:
                 row["import_batch_id"] = import_batch_id
             if contact.get("custom_fields"):
@@ -398,15 +404,19 @@ class ContactService:
         return result.data[0] if result.data else {}
 
     @staticmethod
-    def get_suppression_list(tenant_id: str, page: int = 1, limit: int = 50) -> Dict:
+    def get_suppression_list(tenant_id: str, jwt_payload: Any, page: int = 1, limit: int = 50) -> Dict:
         """Get contacts mapped to bounced or unsubscribed status."""
         offset = (page - 1) * limit
         
         result = db.client.table("contacts")\
             .select("id, email, first_name, last_name, status, created_at", count="exact")\
             .eq("tenant_id", tenant_id)\
-            .in_("status", ["bounced", "unsubscribed", "complained"])\
-            .order("created_at", desc=True)\
+            .in_("status", ["bounced", "unsubscribed", "complained"])
+            
+        from utils.jwt_middleware import apply_data_isolation
+        result = apply_data_isolation(result, jwt_payload)
+            
+        result = result.order("created_at", desc=True)\
             .range(offset, offset + limit - 1)\
             .execute()
             

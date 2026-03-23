@@ -56,7 +56,7 @@ async def dispatch_campaign(db: Client, campaign: dict):
         supabase=db,
         tenant_id=tenant_id,
         target=campaign.get("audience_target") or "all",
-        exclude_suppressed=False,
+        exclude_suppressed=True,
     )
 
     if not contacts:

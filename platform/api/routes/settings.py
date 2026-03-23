@@ -23,6 +23,9 @@ class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     timezone: Optional[str] = None
 
+class IsolationModelUpdate(BaseModel):
+    data_isolation_model: str
+
 
 class OrganizationUpdate(BaseModel):
     company_name: Optional[str] = None
@@ -88,6 +91,44 @@ async def update_organization(body: OrganizationUpdate, claims: JWTPayload = Dep
 
     result = db.client.table("tenants").update(updates).eq("id", claims.tenant_id).execute()
     return {"message": "Organization updated", "data": result.data[0] if result.data else {}}
+
+
+@router.patch("/organization/isolation-model")
+async def update_isolation_model(
+    body: IsolationModelUpdate, 
+    from_utils_jwt = Depends(verify_jwt_token)
+):
+    """
+    Update the workspace data isolation model.
+    Only owners can do this.
+    Returns a fresh JWT token so the owner's session isn't invalidated by the middleware.
+    """
+    if from_utils_jwt.role != "owner":
+        raise HTTPException(code=403, detail="Only the workspace owner can change the isolation model.")
+        
+    if body.data_isolation_model not in ["team", "agency"]:
+        raise HTTPException(status_code=400, detail="Invalid isolation model. Must be 'team' or 'agency'.")
+
+    db.client.table("tenants").update({
+        "data_isolation_model": body.data_isolation_model
+    }).eq("id", from_utils_jwt.tenant_id).execute()
+    
+    # Generate fresh JWT
+    from routes.auth import create_access_token
+    token_data = {
+        "user_id": from_utils_jwt.user_id,
+        "tenant_id": from_utils_jwt.tenant_id,
+        "email": from_utils_jwt.email,
+        "role": from_utils_jwt.role,
+        "isolation_model": body.data_isolation_model
+    }
+    
+    access_token = create_access_token(token_data)
+    
+    return {
+        "message": f"Workspace updated to {body.data_isolation_model} model.",
+        "token": access_token
+    }
 
 
 # ── API Keys ───────────────────────────────────────────────────────────

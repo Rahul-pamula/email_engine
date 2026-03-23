@@ -68,7 +68,7 @@ async def _run_scheduler():
                         supabase=db.client,
                         tenant_id=tid,
                         target=camp.get("audience_target") or "all",
-                        exclude_suppressed=False,
+                        exclude_suppressed=True,
                     )
                     if not contacts:
                         db.client.table("campaigns").update({"status": "draft"}).eq("id", cid).execute()

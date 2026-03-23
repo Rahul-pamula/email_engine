@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (parsedUser.tenantStatus === 'pending_join' && pathname !== '/waiting-room') {
                         router.push('/waiting-room');
                     } else if (parsedUser.tenantStatus === 'onboarding' && !pathname?.startsWith('/onboarding')) {
-                        router.push('/onboarding/basic-info');
+                        router.push('/onboarding/workspace');
                     }
                 } catch (e) {
                     console.error('Auth check error:', e);

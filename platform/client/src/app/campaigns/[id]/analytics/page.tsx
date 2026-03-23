@@ -9,13 +9,9 @@ type Stats = {
   failed: number;
   opens: number;
   unique_opens: number;
-  clicks: number;
-  unique_clicks: number;
   bounces: number;
   unsubscribes: number;
   open_rate: number;
-  click_rate: number;
-  click_to_open: number;
   bounce_rate: number;
   unsubscribe_rate: number;
   view?: string;
@@ -28,7 +24,6 @@ type Recipient = {
   name: string;
   status: string;
   opened: boolean;
-  clicked: boolean;
   bounced: boolean;
   unsubscribed: boolean;
   sources?: string[];
@@ -43,7 +38,6 @@ export default function CampaignAnalyticsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
    const [sources, setSources] = useState<Record<string, number>>({});
   const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [view, setView] = useState<"human" | "all">("human");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -55,8 +49,8 @@ export default function CampaignAnalyticsPage() {
       setLoading(true);
       try {
         const [sRes, rRes] = await Promise.all([
-          fetch(`${API_BASE}/analytics/campaigns/${id}?view=${view}`, { headers }),
-          fetch(`${API_BASE}/analytics/campaigns/${id}/recipients?view=${view}`, { headers }),
+          fetch(`${API_BASE}/analytics/campaigns/${id}`, { headers }),
+          fetch(`${API_BASE}/analytics/campaigns/${id}/recipients`, { headers }),
         ]);
         if (!sRes.ok) throw new Error((await sRes.json()).detail || "Failed to load stats");
         if (!rRes.ok) throw new Error((await rRes.json()).detail || "Failed to load recipients");
@@ -73,13 +67,13 @@ export default function CampaignAnalyticsPage() {
       }
     };
     load();
-  }, [token, id, API_BASE, view]);
+  }, [token, id, API_BASE]);
 
   const statCards = stats
     ? [
         { label: "Sent", value: stats.sent },
         { label: "Opens (unique)", value: stats.unique_opens, sub: `${stats.open_rate}%` },
-        { label: "Clicks (unique)", value: stats.unique_clicks, sub: `${stats.click_rate}%` },
+        { label: "Opens (total)", value: stats.opens },
         { label: "Bounce rate", value: `${stats.bounce_rate}%` },
         { label: "Unsubscribes", value: stats.unsubscribes },
       ]
@@ -97,25 +91,6 @@ export default function CampaignAnalyticsPage() {
       <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#FAFAFA", marginBottom: "16px" }}>
         Campaign Analytics
       </h1>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        {(["human", "all"] as const).map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setView(opt)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "8px",
-              border: opt === view ? "1px solid #8B5CF6" : "1px solid rgba(63,63,70,0.35)",
-              background: opt === view ? "rgba(139,92,246,0.1)" : "rgba(24,24,27,0.5)",
-              color: "#E4E4E7",
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
-          >
-            {opt === "human" ? "Human-filtered" : "All signals"}
-          </button>
-        ))}
-      </div>
 
       {error && (
         <div style={{ padding: "12px 14px", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#F87171", marginBottom: "16px" }}>
@@ -161,10 +136,9 @@ export default function CampaignAnalyticsPage() {
                     <th style={{ textAlign: "left", padding: "10px" }}>Name</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Status</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Opened</th>
-                    <th style={{ textAlign: "left", padding: "10px" }}>Clicked</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Bounced</th>
                     <th style={{ textAlign: "left", padding: "10px" }}>Unsubscribed</th>
-                    <th style={{ textAlign: "left", padding: "10px" }}>Sources</th>
+                    <th style={{ textAlign: "left", padding: "10px" }}>Signals</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -173,16 +147,15 @@ export default function CampaignAnalyticsPage() {
                       <td style={{ padding: "10px", color: "#E4E4E7" }}>{r.email}</td>
                       <td style={{ padding: "10px", color: "#A1A1AA" }}>{r.name || "—"}</td>
                       <td style={{ padding: "10px", color: "#A1A1AA", textTransform: "lowercase" }}>{r.status}</td>
-                      <td style={{ padding: "10px", color: r.opened ? "#22C55E" : "#71717A" }}>{r.opened ? "Yes" : "No"}</td>
-                      <td style={{ padding: "10px", color: r.clicked ? "#22C55E" : "#71717A" }}>{r.clicked ? "Yes" : "No"}</td>
-                      <td style={{ padding: "10px", color: r.bounced ? "#F87171" : "#71717A" }}>{r.bounced ? "Yes" : "No"}</td>
-                      <td style={{ padding: "10px", color: r.unsubscribed ? "#F59E0B" : "#71717A" }}>{r.unsubscribed ? "Yes" : "No"}</td>
-                      <td style={{ padding: "10px", color: "#A1A1AA" }}>{(r.sources || ["unknown"]).join(", ")}</td>
+                      <td style={{ padding: "10px", color: r.opened ? "#22C55E" : "#71717A" }}>{r.opened ? "✓ Yes" : "No"}</td>
+                      <td style={{ padding: "10px", color: r.bounced ? "#F87171" : "#71717A" }}>{r.bounced ? "✓ Yes" : "No"}</td>
+                      <td style={{ padding: "10px", color: r.unsubscribed ? "#F59E0B" : "#71717A" }}>{r.unsubscribed ? "✓ Yes" : "No"}</td>
+                      <td style={{ padding: "10px", color: "#A1A1AA", fontSize: "12px" }}>{(r.sources || ["—"]).join(", ")}</td>
                     </tr>
                   ))}
                   {recipients.length === 0 && (
                     <tr>
-                      <td colSpan={8} style={{ padding: "12px", textAlign: "center", color: "#71717A" }}>No recipient activity yet.</td>
+                      <td colSpan={7} style={{ padding: "12px", textAlign: "center", color: "#71717A" }}>No recipient activity yet.</td>
                     </tr>
                   )}
                 </tbody>
