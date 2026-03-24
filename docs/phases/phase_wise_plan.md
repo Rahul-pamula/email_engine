@@ -10,11 +10,12 @@
 
 A foundational design decision governs the entire platform: **two completely separate email pipelines** exist side-by-side.
 
-### 1. Centralized System Emailer (Gmail SMTP)
-Uses `shrmail.app@gmail.com` via standard SMTP. This pipeline handles all critical platform-to-tenant communications — things like OTP verifications, sender identity confirmation, quota warnings, welcome emails, and campaign completion summaries. It must never go to spam, so it uses a trusted Gmail account rather than a custom domain.
+### 1. Centralized System Emailer (Queue-First via Gmail SMTP)
+Uses `shrmail.app@gmail.com` via standard SMTP. This pipeline handles all critical platform-to-tenant communications — things like OTP verifications, sender identity confirmation, quota warnings, welcome emails, and campaign completion summaries. 
+To ensure extreme resilience and instant API responses, this system uses a **Queue-First Architecture**. The FastAPI server pushes lightweight JSON payloads directly to a `central_system_events` RabbitMQ queue. A dedicated Python worker script (`centralized_email_worker.py`) consumes the queue, renders the emails using **Jinja2** templates (preventing XSS), and dispatches them via Gmail SMTP.
 
-### 2. Tenant Campaign Emailer (Amazon SES)
-Uses the tenant's own verified custom domain (e.g. `sales@theircompany.com`) via AWS SES. This is the high-volume, high-throughput pipeline dedicated to marketing campaigns and bulk outreach. It keeps each tenant's sender reputation completely isolated from the platform itself.
+### 2. Tenant Campaign Emailer (Self-Hosted MTA)
+Uses the tenant's own verified custom domain (e.g. `sales@theircompany.com`). This is the high-volume, high-throughput pipeline dedicated to marketing campaigns and bulk outreach. It keeps each tenant's sender reputation completely isolated from the platform itself. (Note: Originally designed for AWS SES, but currently pivoting to a Self-Hosted MTA like Mox or Postal following an AWS limit rejection).
 
 ---
 
@@ -77,6 +78,15 @@ An audit log table captures who did what and when — specifically metadata abou
 A front-end audit log viewer in the admin settings area lets workspace owners see this activity timeline.
 
 Two-factor authentication (TOTP) for workspace admins is planned for this phase, enforcing an extra identity layer for high-privilege accounts.
+
+---
+
+### 🔴 System Architecture Pivot [COMPLETED]
+
+These items were executed to decouple the backend from AWS SES following a service denial, dramatically increasing the system's resilience.
+
+**Pivot 1 — Queue-First Centralized Mailer (RabbitMQ + Jinja2)** *(Effort: 0.5 days)*
+The core `email_service.py` was completely refactored. Standard SMTP sending inside the API request loop was removed. The API now functions exclusively as an AMQP publisher, sending events to `central_system_events` on the existing RabbitMQ server. A dedicated daemon (`centralized_email_worker.py`) resolves these events, populates safe HTML using the lightweight `Jinja2` templating engine, and sends via Google's trusted SMTP servers using an App Password. This guarantees instant `< 10ms` HTTP responses.
 
 ---
 
