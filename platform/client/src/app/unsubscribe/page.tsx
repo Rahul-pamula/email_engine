@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { CheckCircle2, XCircle, AlertCircle, RotateCcw, Mail, Loader2 } from "lucide-react";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 function UnsubscribeContent() {
     const params = useSearchParams();
@@ -14,6 +14,13 @@ function UnsubscribeContent() {
     const [resubStatus, setResubStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
     const [email, setEmail] = useState("");
     const [showResubForm, setShowResubForm] = useState(false);
+
+    useEffect(() => {
+        if (status === "success" && !showResubForm && resubStatus === 'idle') {
+            const t = setTimeout(() => window.close(), 3000);
+            return () => clearTimeout(t);
+        }
+    }, [status, showResubForm, resubStatus]);
 
     const handleResub = async () => {
         if (!email.trim()) return;
@@ -26,6 +33,7 @@ function UnsubscribeContent() {
             });
             if (!res.ok) throw new Error("Failed");
             setResubStatus('done');
+            setTimeout(() => window.close(), 3000);
         } catch {
             setResubStatus('error');
         }
@@ -62,6 +70,18 @@ function UnsubscribeContent() {
                     You won&apos;t receive any more marketing emails from this sender.
                     This takes effect immediately.
                 </p>
+                {!showResubForm && resubStatus === 'idle' && (
+                    <button
+                        onClick={() => window.close()}
+                        style={{
+                            padding: "10px 20px", background: "rgba(255,255,255,0.1)",
+                            border: "1px solid rgba(255,255,255,0.2)", borderRadius: "8px",
+                            color: "#E4E4E7", fontSize: "14px", cursor: "pointer", marginBottom: "32px"
+                        }}
+                    >
+                        Close window
+                    </button>
+                )}
 
                 <div style={{ borderTop: "1px solid rgba(63,63,70,0.3)", paddingTop: "24px" }}>
                     <p style={{ fontSize: "13px", color: "#52525B", margin: "0 0 16px" }}>
@@ -121,9 +141,21 @@ function UnsubscribeContent() {
                             )}
                         </div>
                     ) : (
-                        <p style={{ fontSize: "13px", color: "#4ADE80", margin: 0 }}>
-                            ✅ You&apos;ve been re-subscribed. Welcome back!
-                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "center" }}>
+                            <p style={{ fontSize: "13px", color: "#4ADE80", margin: 0 }}>
+                                ✅ You&apos;ve been re-subscribed. Welcome back!
+                            </p>
+                            <button
+                                onClick={() => window.close()}
+                                style={{
+                                    padding: "8px 16px", background: "rgba(255,255,255,0.1)",
+                                    border: "1px solid rgba(255,255,255,0.2)", borderRadius: "8px",
+                                    color: "#E4E4E7", fontSize: "13px", cursor: "pointer"
+                                }}
+                            >
+                                Close window
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

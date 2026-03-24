@@ -1,118 +1,55 @@
-# Phase 6: Analytics & Engagement Tracking — Technical Audit
+# Phase 6 — Analytics & Engagement Tracking: Technical Audit
 
-## Overview
-Phase 6 enables the platform to track recipient interactions (opens and clicks) with dispatched email campaigns. It introduces a high-concurrency event ingestion API, database schema for event storage, python worker modifications for payload injection, and frontend dashboards for data visualization. This audit covers the implementation status, technical architecture, resolved issues, and pending optimizations.
+> Audit date: March 23, 2026 (updated)
+> Status: ✅ Complete (with corrections applied March 23, 2026)
 
----
+## What is verified working
 
-## 1. Database Schema
-### `email_events` Table
-**Status: Implemented ✅**
-The primary storage for all interaction events. It is designed to handle high write-throughput during campaign deployment.
+### Tracking integrity
+- `/track/open/{dispatch_id}` enforces HMAC signatures (`TRACKING_SECRET`), rejects forged payloads (400), and records `email_events`
+- Open tracking pixel is injected into every email at dispatch time by the worker
+- Click tracking is intentionally disabled (saves Supabase Edge Function invocations)
+- Bounces are captured natively via SES webhooks directly to the backend
 
-**Columns:**
-- `id` (UUID, Primary Key)
-- `tenant_id` (UUID, Foreign Key)
-- `campaign_id` (UUID, Foreign Key)
-- `dispatch_id` (UUID, Foreign Key)
-- `subscriber_id` (UUID, Foreign Key)
-- `contact_id` (UUID, Foreign Key - Alias for subscriber)
-- `event_type` (TEXT - 'open', 'click', 'bounce', 'spam')
-- `url` (TEXT - Nullable, stores destination for clicks)
-- `user_agent` (TEXT)
-- `ip_address` (TEXT)
-- `is_bot` (BOOLEAN)
-- `created_at` (TIMESTAMPTZ)
+### Unsubscribe event logging (fixed 2026-03-23)
+- Unsubscribing now correctly logs an `unsubscribe` event row into `email_events`
+- Previously, the `tenant_id` was not passed to the insert, causing Supabase RLS to silently reject the event — the `email_events` table showed 0 unsubscribes even after real unsubscriptions
+- `tenant_id` is now correctly retrieved from the contact record and passed to `_record_unsubscribe_event`
 
-**Indexes Implemented:**
-- `idx_email_events_tenant`
-- `idx_email_events_campaign`
-- `idx_email_events_dispatch`
-- `idx_email_events_subscriber`
+### Analytics stat cards — live-status Unsubscribes count (fixed 2026-03-23)
+- The Unsubscribes stat card now cross-checks each unsubscribed contact's current live status before counting
+- If a contact re-subscribes, their status becomes `"subscribed"` and they no longer count toward the campaign's Unsubscribes total
+- Previously, the count was based purely on historical event log — re-subscribing did not reduce the count
 
----
+### Analytics Recipient Activity — Unsubscribed column (fixed 2026-03-23)
+- The "Unsubscribed" column in the Recipient Activity table now reflects live contact status
+- A contact who re-subscribes will show "Unsubscribed: No" immediately after re-subscribing
+- Previously, the column was `"unsubscribe" in event_types` — permanent once set, regardless of re-subscription
 
-## 2. Backend API (`tracking.py`)
-### `GET /track/open/{encoded_payload}`
-**Status: Implemented ✅**
-- Decodes Base64 payload containing `dispatch_id`.
-- Records `open` event in the database asynchronously via `BackgroundTasks`.
-- Returns a 1x1 transparent GIF with `image/gif` content type.
-- **Cache Headers:** `Cache-Control: no-cache, no-store, must-revalidate` applied to prevent Apple/Gmail proxy caching.
+### Suppression list API (fixed 2026-03-23)
+- `GET /contacts/suppression` was colliding with `GET /contacts/{contact_id}` in the FastAPI router
+- Fixed by reordering the routes — `/suppression` is now declared before the dynamic `/{contact_id}` route
+- Previously the route returned a 500 error on every request, so the Suppression List page never loaded
+- Additionally: the `get_suppressed_contacts` handler was missing the `jwt_payload` dependency injection, causing the `apply_data_isolation` call inside `ContactService.get_suppression_list` to crash silently and return 0 results. This is now fixed.
 
-### `GET /track/click`
-**Status: Implemented ✅**
-- Expects a `d` query parameter containing a Base64 JSON payload (`dispatch_id`, `url`).
-- Records `click` event asynchronously.
-- Issues `HTTP 307 Temporary Redirect` to the original URL.
-- Preserves external query parameters (UTM tags) by appending them to the destination URL.
+### Source attribution
+- `email_events` stores `source` field: `gmail_proxy`, `apple_mpp`, `outlook_proxy`, `yahoo_proxy`, `scanner`, `honeypot`, `human`
+- Analytics API aggregates by source and returns a breakdown in the campaign analytics response
+- Gmail Proxy opens are counted as genuine opens — this is correct; Gmail Image Proxy downloads the tracking pixel on behalf of the real user as a privacy feature
 
-### Bot Detection Engine
-**Status: Implemented ✅**
-- `_is_bot()` function cross-references `User-Agent` against known crawler fragments (`bot`, `crawler`, `spider`, `googleimageproxy`).
-- **Timing Correlation:** If a `click` event occurs less than 2 seconds after an `open` event for the same `dispatch_id`, the click is flagged as `is_bot = true` (assumed security scanner pre-fetch).
+### Human-filtered toggle removed (2026-03-23)
+- The "Human-filtered vs. All signals" toggle was removed from the analytics UI
+- The backend already integrated all signals into the main metrics correctly
+- The toggle was unnecessary UI complexity and has been removed
 
----
+### Data model
+- `email_events` table (migration 012) includes `tenant_id, campaign_id, dispatch_id, contact_id, event_type, source, ip_address, user_agent, is_bot, created_at`
+- Indexed on `campaign_id`, `dispatch_id`, `event_type`, `created_at`
 
-## 3. Python Worker Modifications (`email_sender.py`)
-### Payload Injection
-**Status: Implemented ✅**
-- Worker generates a Base64-encoded JSON payload for each recipient containing: `{"dispatch_id": "uuid", "campaign_id": "uuid", "tenant_id": "uuid", "recipient_email": "email", "url": "optional"}`.
-- **Pixel Injection:** Injects `<img src="{API_BASE_URL}/track/open/{payload}" />` before the closing `</body>` tag.
-- **URL Wrapping:** Uses regex/BeautifulSoup to find all `<a href="...">` tags and replaces the `href` with `{API_BASE_URL}/track/click?d={payload}`.
-
-### SMTP Dispatch
-**Status: Implemented ✅**
-- Continues to utilize AWS SES (`aiosmtplib`) for actual delivery, ensuring high deliverability.
-
----
-
-## 4. Analytics Data Aggregation (`analytics.py`)
-### `GET /analytics/campaigns/{id}`
-**Status: Implemented ✅**
-- Aggregates data from `campaign_dispatch` and `email_events`.
-- Calculates: Total Delivered, Unique Opens, Open Rate, Unique Clicks, Click Rate, Bounce Rate.
-- Filters out events where `is_bot = true`.
-
-### `GET /analytics/campaigns/{id}/recipients`
-**Status: Implemented ✅**
-- Provides exact subscriber-level interaction data.
-- Supports filtering by `status` (all, opened, clicked, bounced).
-
-### `GET /analytics/sender-health`
-**Status: Implemented ✅**
-- Calculates account-wide reputation metrics: Total Sent, Average Open Rate, Global Bounce Rate.
-
----
-
-## 5. Frontend UI
-### Campaign Dashboard (`/campaigns/[id]/analytics`)
-**Status: Implemented ✅**
-- Displays KPI constraint cards (Opens, Clicks, Delivers).
-- Renders the recipient interaction list dynamically.
-
-### Global Dashboard
-**Status: Implemented ✅**
-- Displays the "Sender Health & Deliverability" widget based on live tenant data.
-
----
-
-## Known Issues & Resolutions During Phase 6
-
-| Issue | Root Cause | Resolution |
-| :--- | :--- | :--- |
-| **Campaign Stuck in "Sending"** | Worker attempted to update non-existent `updated_at` column in `campaigns` table. | Removed `updated_at` from the worker's SQL update query. |
-| **Silent Tracking Failure** | `campaigns!inner(tenant_id)` PostgREST join failed silently in `tracking.py`, resulting in unrecorded events. | Split the logic into two plain SQL queries (fetch dispatch, then fetch campaign) and added explicit error logging. |
-| **Ngrok Browser Warnings** | Opening tracking links locally triggered Ngrok's anti-phishing warning screen (HTTP 6024), preventing the API from receiving the request. | Instructed user to manually bypass the warning screen for testing. Issue will resolve automatically upon production deployment. |
-| **Gmail Image Proxy Blocking** | Emails landing in Spam caused Gmail to proxy/cache the tracking pixel without hitting the API. | Instructed user to mark as "Not Spam" and test direct link clicks to verify API pipeline. |
-| **Uvicorn API Crash** | `ModuleNotFoundError: No module named 'redis'` inside terminal. | Terminal was executing global python. Forced execution via `.venv/bin/uvicorn`. |
-
----
-
-## Pending Roadmap (Phase 7 / Phase 6.5)
-
-1. **Schedule Delays (Phase 7):** Currently, the frontend `scheduled_at` date is saved to the database, but the Python worker pulls everything from RabbitMQ immediately. A delay mechanism (RabbitMQ Delayed Message Plugin or Celery Beat) needs to be implemented.
-2. **Honeypot Links (Phase 6.5):** Inject invisible `display:none` links via the Python worker to trap sophisticated bots that bypass the 2-second timing check.
-3. **Database Partitioning (Phase 6.5):** As the platform scales, `email_events` should be partitioned by month to maintain index performance.
-4. **Actionable Segments (Phase 6.5):** UI feature to "Create Segment" directly from the Opened/Clicked recipient list in the Campaign Analytics view.
-5. **Domain Verification (Phase 7):** Moving away from generic AWS SES domains to tenant-specific verified sending domains (SPF/DKIM/DMARC) to improve baseline deliverability and minimize Gmail spam folder placement.
+## File pointers
+- Supabase Edge Function: `supabase/functions/track/index.ts`
+- Analytics API: `platform/api/routes/analytics.py`
+- Unsubscribe route: `platform/api/routes/unsubscribe.py`
+- Contacts route: `platform/api/routes/contacts.py`
+- UI: `platform/client/src/app/campaigns/[id]/analytics/page.tsx`
+- Migration: `migrations/012_email_events.sql`

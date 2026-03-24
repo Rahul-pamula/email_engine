@@ -14,12 +14,14 @@ router = APIRouter(prefix="/team", tags=["Team & Workspaces"])
 class InviteRequest(BaseModel):
     email: EmailStr
     role: str = "member"
+    isolation_model: str = "team"
 
 class AcceptInviteRequest(BaseModel):
     token: str
 
 class UpdateRoleRequest(BaseModel):
-    role: str
+    role: Optional[str] = None
+    isolation_model: Optional[str] = None
 
 
 # Helper to check if current user is owner/admin
@@ -33,7 +35,7 @@ def _require_admin_role(jwt_payload: JWTPayload) -> bool:
 async def get_team_members(tenant_id: str = Depends(require_active_tenant)):
     """List all users in the current workspace."""
     # Since Supabase rest doesn't easily do clean many-to-many joins without RPC, we'll fetch both and map
-    tu_res = db.client.table("tenant_users").select("user_id, role, joined_at").eq("tenant_id", tenant_id).execute()
+    tu_res = db.client.table("tenant_users").select("user_id, role, isolation_model, joined_at").eq("tenant_id", tenant_id).execute()
     members = tu_res.data or []
     if not members:
         return []
@@ -48,6 +50,7 @@ async def get_team_members(tenant_id: str = Depends(require_active_tenant)):
         result.append({
             "user_id": m["user_id"],
             "role": m["role"],
+            "isolation_model": m.get("isolation_model", "team"),
             "joined_at": m["joined_at"],
             "email": u.get("email"),
             "full_name": u.get("full_name"),
@@ -60,7 +63,7 @@ async def get_team_members(tenant_id: str = Depends(require_active_tenant)):
 @router.get("/invites/validate")
 async def validate_invite(token: str):
     """Peek at an invite token to get the target email (no auth required, doesn't consume the token)."""
-    res = db.client.table("team_invitations").select("email, role, expires_at, tenant_id").eq("token", token).execute()
+    res = db.client.table("team_invitations").select("email, role, isolation_model, expires_at, tenant_id").eq("token", token).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Invalid or expired invitation token.")
     
@@ -127,6 +130,7 @@ async def send_invite(
         "tenant_id": tenant_id,
         "email": body.email,
         "role": body.role,
+        "isolation_model": body.isolation_model,
         "token": token,
         "expires_at": expires_at,
         "inviter_id": jwt_payload.user_id
@@ -190,6 +194,7 @@ async def accept_invite(
             "tenant_id": invite["tenant_id"],
             "user_id": jwt_payload.user_id,
             "role": invite["role"],
+            "isolation_model": invite.get("isolation_model", "team"),
             "joined_at": datetime.now(timezone.utc).isoformat()
         }).execute()
     except Exception as e:
@@ -207,14 +212,16 @@ async def accept_invite(
         "user_id": jwt_payload.user_id,
         "tenant_id": invite["tenant_id"],
         "email": jwt_payload.email,
-        "role": invite["role"]
+        "role": invite["role"],
+        "isolation_model": invite.get("isolation_model", "team")
     })
 
     return {
         "message": "Successfully joined workspace.",
         "tenant_id": invite["tenant_id"],
         "new_token": new_token,
-        "role": invite["role"]
+        "role": invite["role"],
+        "isolation_model": invite.get("isolation_model", "team")
     }
 
 
@@ -264,22 +271,34 @@ async def update_member_role(
     tenant_id: str = Depends(require_active_tenant),
     jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
-    """Change a user's role in the workspace."""
+    """Change a user's role and access mode in the workspace."""
     # Only owners can change roles 
     if jwt_payload.role != "owner":
         raise HTTPException(status_code=403, detail="Only owners can change roles.")
         
-    if body.role not in ["owner", "admin", "member"]:
+    if body.role and body.role not in ["owner", "admin", "member"]:
         raise HTTPException(status_code=400, detail="Invalid role.")
         
-    if user_id == jwt_payload.user_id:
+    if body.isolation_model and body.isolation_model not in ["team", "agency"]:
+        raise HTTPException(status_code=400, detail="Invalid isolation model.")
+        
+    if user_id == jwt_payload.user_id and body.role:
         raise HTTPException(status_code=400, detail="You cannot modify your own role.")
 
-    res = db.client.table("tenant_users").update({"role": body.role}).eq("tenant_id", tenant_id).eq("user_id", user_id).execute()
+    updates = {}
+    if body.role:
+        updates["role"] = body.role
+    if body.isolation_model:
+        updates["isolation_model"] = body.isolation_model
+        
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update.")
+
+    res = db.client.table("tenant_users").update(updates).eq("tenant_id", tenant_id).eq("user_id", user_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Member not found.")
         
-    return {"message": "Role updated."}
+    return {"message": "Member details updated."}
 
 
 # === Enterprise JIT Auto-Discovery Routes ===

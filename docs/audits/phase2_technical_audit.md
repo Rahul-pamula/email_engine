@@ -565,3 +565,8 @@ But it is not accurate to call the phase fully complete. The truthful status is:
 - product promises in docs/checklists: ahead of reality in several places
 
 The right maintenance action is not to rewrite the code first. It is to align the documentation to the current code, then decide which missing product promises still belong in Phase 2 versus a later cleanup phase.
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

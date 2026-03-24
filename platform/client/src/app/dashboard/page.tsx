@@ -99,7 +99,8 @@ export default function DashboardPage() {
         }).catch(() => { });
 
         // Fast Path: skip checking the remaining 4 endpoints if onboarding is permanently done
-        if (localStorage.getItem('onboarding_status') === 'completed') {
+        const cacheKey = `onboarding_status_${token.substring(0, 10)}`;
+        if (localStorage.getItem(cacheKey) === 'completed') {
             setIsOnboardingCompleted(true);
             setIsLoading(false);
             return;
@@ -128,7 +129,7 @@ export default function DashboardPage() {
             const checkSteps = 1 + (checkHasDomain ? 1 : 0) + (checkHasSender ? 1 : 0) + (contCount > 0 ? 1 : 0) + (campCount > 0 ? 1 : 0);
 
             if (checkSteps === 5) {
-                localStorage.setItem('onboarding_status', 'completed');
+                localStorage.setItem(cacheKey, 'completed');
                 setIsOnboardingCompleted(true);
             }
         }).catch(err => {

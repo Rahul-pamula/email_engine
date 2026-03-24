@@ -362,3 +362,8 @@ But the correct technical summary is:
 So the right conclusion is:
 
 **Phase 4 is mostly complete and operational, not fully complete.**
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

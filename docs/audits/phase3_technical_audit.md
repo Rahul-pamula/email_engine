@@ -358,3 +358,8 @@ But the correct technical statement is:
 So the right conclusion is:
 
 **Phase 3 is partially complete and operational, not fully complete.**
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

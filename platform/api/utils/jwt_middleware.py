@@ -20,11 +20,12 @@ ALGORITHM = "HS256"
 
 class JWTPayload:
     """Validated JWT payload"""
-    def __init__(self, user_id: str, tenant_id: str, email: str, role: str):
+    def __init__(self, user_id: str, tenant_id: str, email: str, role: str, isolation_model: str = "team"):
         self.user_id = user_id
         self.tenant_id = tenant_id
         self.email = email
         self.role = role
+        self.isolation_model = isolation_model
 
 
 def verify_jwt_token(authorization: str = Header(..., alias="Authorization")) -> JWTPayload:
@@ -61,6 +62,7 @@ def verify_jwt_token(authorization: str = Header(..., alias="Authorization")) ->
         tenant_id = payload.get("tenant_id")
         email = payload.get("email")
         role = payload.get("role")
+        isolation_model = payload.get("isolation_model", "team")
         
         if not all([user_id, tenant_id, email, role]):
             raise HTTPException(
@@ -72,7 +74,8 @@ def verify_jwt_token(authorization: str = Header(..., alias="Authorization")) ->
             user_id=user_id,
             tenant_id=tenant_id,
             email=email,
-            role=role
+            role=role,
+            isolation_model=isolation_model
         )
         
     except JWTError as e:
@@ -185,3 +188,36 @@ def require_authenticated_user(
     - Profile routes
     """
     return jwt_payload
+
+def require_admin_or_owner(jwt_payload: JWTPayload = Depends(verify_jwt_token)) -> JWTPayload:
+    """
+    Require the user to have 'admin' or 'owner' role.
+    Use this for destructive actions, domain management, team invites, etc.
+    """
+    if jwt_payload.role not in ["admin", "owner"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Action forbidden. Admin or Owner role required, but you are a '{jwt_payload.role}'."
+        )
+    return jwt_payload
+
+def apply_data_isolation(query_builder, jwt_payload: JWTPayload):
+    """
+    Modifies a Supabase query builder to enforce Agency vs Team isolation rules.
+    Reads the isolation model directly from the JWT.
+    
+    - Owner/Admin: See all rows.
+    - Agency + Member: See only their own rows.
+    - Team + Member: See all rows.
+    """
+    role = jwt_payload.role
+    user_id = jwt_payload.user_id
+    model = getattr(jwt_payload, "isolation_model", "team")
+    
+    if role in ["owner", "admin"]:
+        return query_builder
+        
+    if model == "agency":
+        query_builder = query_builder.eq("created_by_user_id", user_id)
+        
+    return query_builder

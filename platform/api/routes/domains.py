@@ -50,10 +50,10 @@ async def add_domain(body: AddDomainRequest, tenant_id: str = Depends(require_ac
     """
     domain = body.domain_name.strip().lower()
     
-    # Check if domain already exists for another tenant (prevent hijacking)
-    existing = db.client.table("domains").select("id").eq("domain_name", domain).execute()
+    # Check if domain already exists for THIS tenant
+    existing = db.client.table("domains").select("id").eq("domain_name", domain).eq("tenant_id", tenant_id).execute()
     if existing.data:
-        raise HTTPException(status_code=400, detail="Domain is already registered in the system.")
+        raise HTTPException(status_code=400, detail="Domain is already registered in your workspace.")
         
     mail_from = f"bounces.{domain}"
     dkim_tokens = []

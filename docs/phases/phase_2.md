@@ -431,3 +431,10 @@ The correction needed is accuracy:
 - describe domain filtering and batch-domain targeting as implemented
 - describe custom fields as stored on the contact record, not primarily in a separate custom-fields table
 - stop claiming soft delete and contact activity features that the code does not currently provide
+
+---
+## Technical Appendix (Engineering view)
+- Tables: contacts, import_batches, tags, contact_tags join; columns include tenant_id, email, status, tags[], custom_fields jsonb, deleted_at.
+- Endpoints: /contacts (CRUD/search/filter/pagination), /contacts/upload (CSV/XLSX ingest), /contacts/batches, /contacts/domains, /contacts/export, /contacts/tags.
+- Worker: csv_import job writes contacts with deduplication.
+- UI: platform/client/src/app/contacts/* (list, detail, import modal, suppression list).

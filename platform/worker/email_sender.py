@@ -6,9 +6,11 @@ import os
 import json
 import logging
 import ssl
+import httpx
 import aio_pika
 import uuid
 import redis.asyncio as redis
+from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import random
@@ -26,8 +28,9 @@ ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-# Load environment variables (assume running from root or .env is provided)
-load_dotenv()
+# Load environment variables from repo root
+ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=ROOT_ENV, override=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] Worker: %(message)s")
 logger = logging.getLogger(__name__)
@@ -39,28 +42,35 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 UNSUB_SECRET = os.getenv("UNSUBSCRIBE_SECRET", "dev-unsub-secret-change-in-production")
 FRONTEND_BASE = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+TRACKING_SECRET = os.getenv("TRACKING_SECRET", "dev-tracking-secret")
 
 def _get_api_base() -> str:
     """Reload API_URL from .env on every call so tunnel URL changes are picked up."""
     load_dotenv(override=True)
     return os.getenv("API_URL", "http://localhost:8000")
 
+def _get_backend_url() -> str:
+    load_dotenv(override=True)
+    return os.getenv("BACKEND_URL", "http://localhost:8000")
+
 def _make_unsub_token(contact_id: str, campaign_id: str) -> str:
     payload = f"{contact_id}:{campaign_id}"
     sig = hmac.new(UNSUB_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(f"{payload}:{sig}".encode()).decode()
 
-def _inject_email_footer(body_html: str, contact_id: str, campaign_id: str) -> str:
+def _inject_email_footer(body_html: str, contact_id: str, campaign_id: str, tenant_footer_text=None) -> str:
     """Append mandatory unsubscribe link + physical address footer to email HTML."""
     token = _make_unsub_token(contact_id, campaign_id)
-    unsub_url = f"{_get_api_base()}/unsubscribe?token={token}"
+    unsub_url = f"{_get_backend_url()}/unsubscribe?token={token}"
+    address_text = tenant_footer_text or "Email Engine Inc. &bull; 123 Main Street &bull; City, State 00000 &bull; Country"
+    
     footer = f"""
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-family:sans-serif;font-size:12px;color:#9ca3af;">
   <p style="margin:0 0 6px;">You received this email because you subscribed to our mailing list.</p>
   <p style="margin:0 0 6px;">
     <a href="{unsub_url}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>
   </p>
-  <p style="margin:0;">Email Engine Inc. &bull; 123 Main Street &bull; City, State 00000 &bull; Country</p>
+  <p style="margin:0;">{address_text}</p>
 </div>"""
     # Insert before </body> if present, else append
     if "</body>" in body_html.lower():
@@ -69,7 +79,8 @@ def _inject_email_footer(body_html: str, contact_id: str, campaign_id: str) -> s
 
 def _inject_tracking_pixel(body_html: str, dispatch_id: str) -> str:
     """Inject 1×1 tracking pixel to detect email opens."""
-    pixel = f'<img src="{_get_api_base()}/track/open/{dispatch_id}" width="1" height="1" style="display:none;" alt="" />'
+    sig = hmac.new(TRACKING_SECRET.encode(), dispatch_id.encode(), hashlib.sha256).hexdigest()
+    pixel = f'<img src="{_get_api_base()}/track/open/{dispatch_id}?s={sig}" width="1" height="1" style="display:none;" alt="" />'
     # Insert just before </body> if present, else append
     if "</body>" in body_html.lower():
         return body_html.replace("</body>", pixel + "</body>", 1)
@@ -78,16 +89,24 @@ def _inject_tracking_pixel(body_html: str, dispatch_id: str) -> str:
 import re as _re
 
 def _wrap_links(body_html: str, dispatch_id: str) -> str:
-    """Rewrite all <a href="..."> links through click tracker."""
-    def replace_href(match):
-        original_url = match.group(1)
-        # Don't wrap unsubscribe links (they are already tracked via token)
-        if "/unsubscribe" in original_url or "/track/" in original_url:
-            return match.group(0)
-        encoded = base64.urlsafe_b64encode(original_url.encode()).decode().rstrip("=")
-        tracked_url = f"{_get_api_base()}/track/click?d={dispatch_id}&url={encoded}"
-        return f'href="{tracked_url}"'
-    return _re.sub(r'href="([^"]+)"', replace_href, body_html, flags=_re.IGNORECASE)
+    """Rewrite all <a href="..."> links through click tracker.
+       (DISABLED: To save Edge Function invocations & costs, we only track opens/bounces/unsubscribes)"""
+    return body_html
+
+def _wrap_links_text(body_text: str, dispatch_id: str) -> str:
+    """Rewrite plain-text URLs through click tracker.
+       (DISABLED: To save Edge Function invocations & costs, we only track opens/bounces/unsubscribes)"""
+    return body_text
+
+def _inject_honeypot(body_html: str, dispatch_id: str) -> str:
+    """Add a hidden link to flag aggressive scanners as bots."""
+    hp_dest = "https://example.com/ignore"
+    encoded = base64.urlsafe_b64encode(hp_dest.encode()).decode().rstrip("=")
+    sig = hmac.new(TRACKING_SECRET.encode(), f"{dispatch_id}:{encoded}".encode(), hashlib.sha256).hexdigest()
+    link = f'<a href="{_get_api_base()}/track/click?d={dispatch_id}&u={encoded}&s={sig}&hp=1" style="display:none;">.</a>'
+    if "</body>" in body_html.lower():
+        return body_html.replace("</body>", link + "</body>", 1)
+    return body_html + link
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase credentials in environment")
@@ -95,6 +114,9 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 # Initialize Clients
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 db: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Force HTTP/1.1 on DB client to avoid stale HTTP/2 ConnectionTerminated errors
+_http1 = httpx.Client(transport=httpx.HTTPTransport(http2=False), timeout=30.0)
+db.postgrest.session = _http1
 
 # RabbitMQ settings
 EXCHANGE_NAME = "campaign_exchange"
@@ -104,7 +126,7 @@ HOLDING_EXCHANGE = "holding_exchange"
 PARKING_QUEUE = "paused_parking_queue"
 TTL_MS = 60000  # 60 seconds sleep
 
-async def setup_queues(channel: aio_pika.robust_channel.RobustChannel):
+async def setup_queues(channel: aio_pika.robust_channel.RobustChannel) -> tuple:
     """Declare main and parking queues to support the TTL routing pattern."""
     # Main Exchange & Queue
     main_exchange = await channel.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.DIRECT, durable=True)
@@ -211,10 +233,36 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage, holding
             # 3. Inject mandatory footer + tracking
             recipient_id = payload.get("recipient_id", "")
             body_html = payload.get("body_html", "")
+            
             if body_html and recipient_id:
-                body_html = _inject_email_footer(body_html, recipient_id, campaign_id)
+                # Fetch tenant details dynamically to customize the footer
+                tenant_footer_text = None
+                try:
+                    camp_info = db.table("campaigns").select("tenant_id").eq("id", campaign_id).execute()
+                    if camp_info.data:
+                        t_id = camp_info.data[0]["tenant_id"]
+                        t_info = db.table("tenants").select("company_name, business_address, business_city, business_state, business_zip, business_country").eq("id", t_id).execute()
+                        if t_info.data:
+                            td = t_info.data[0]
+                            parts: list[str] = []
+                            if td.get("company_name"): parts.append(td["company_name"])
+                            if td.get("business_address"): parts.append(td["business_address"])
+                            
+                            city_data = filter(bool, [td.get("business_city"), td.get("business_state"), td.get("business_zip")])
+                            city_str = " ".join(city_data)
+                            if city_str: parts.append(city_str)
+                            
+                            if td.get("business_country"): parts.append(td["business_country"])
+                            
+                            if parts:
+                                tenant_footer_text = " &bull; ".join(parts)
+                except Exception as e:
+                    logger.warning(f"[{dispatch_id}] Failed to load dynamic footer formatting: {e}")
+            
+                body_html = _inject_email_footer(body_html, recipient_id, campaign_id, tenant_footer_text=tenant_footer_text)
                 body_html = _inject_tracking_pixel(body_html, dispatch_id)
                 body_html = _wrap_links(body_html, dispatch_id)
+                body_html = _inject_honeypot(body_html, dispatch_id)
                 logger.info(f"[{dispatch_id}] Footer + tracking injected for {recipient_email}")
 
             # 4. Real SMTP Send via AWS SES (or fallback to simulation)
@@ -239,6 +287,8 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage, holding
                 # Plain text fallback (strip HTML tags simply)
                 import re as _re2
                 plain = _re2.sub(r'<[^>]+>', '', body_html or subject)
+                # Rewrite plain-text URLs so clicks are tracked even in text-only emails
+                plain = _wrap_links_text(plain, dispatch_id)
                 msg.attach(MIMEText(plain, "plain"))
                 msg.attach(MIMEText(body_html or f"<p>{subject}</p>", "html"))
 

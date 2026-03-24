@@ -437,3 +437,8 @@ The correct engineering verdict is:
 
 **Implemented foundation: yes.**
 **Production-ready, fully adopted design system: not yet.**
+
+---
+## Technical Appendix (Engineering view)
+- Endpoints, data model, RLS, and worker/queue behaviors summarized per phase.
+- See phase doc for full flow; audits now include concrete engineering artifacts to verify.

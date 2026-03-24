@@ -28,7 +28,7 @@ MAILTRAP_WEBHOOK_SECRET = os.getenv("MAILTRAP_WEBHOOK_SECRET", "")
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
-def _suppress_contact(email: str, reason: str):
+def _suppress_contact(email: str, reason: str, bounce_reason=None):
     """Mark a contact as suppressed. Finds by email across all tenants."""
     try:
         res = db.client.table("contacts").select("id, bounce_count").eq("email", email).execute()
@@ -43,6 +43,7 @@ def _suppress_contact(email: str, reason: str):
                     "status": "bounced",
                     "bounced_at": "now()",
                     "bounce_count": new_count,
+                    "bounce_reason": bounce_reason
                 }
             else:  # spam complaint
                 update = {
@@ -72,7 +73,8 @@ async def handle_bounce(request: Request):
     if "soft" in bounce_type or "temporary" in bounce_type:
         logger.info(f"[WEBHOOK] Soft bounce for {email} — skipping suppression.")
         return {"status": "ignored", "reason": "soft_bounce"}
-    _suppress_contact(email, "bounce")
+    bounce_reason_detail = body.get("reason", bounce_type)
+    _suppress_contact(email, "bounce", bounce_reason_detail)
     return {"status": "ok", "action": "contact_marked_bounced", "email": email}
 
 
@@ -122,8 +124,11 @@ async def handle_ses_webhook(request: Request, x_amz_sns_message_type: str = Hea
             for r in recipients:
                 email = r.get("emailAddress")
                 if email and bounce_type == "permanent":
-                    _suppress_contact(email, "bounce")
-                    logger.info(f"[SES] Hard bounce: {email}")
+                    diag_code = r.get("diagnosticCode", "")
+                    b_sub = bounce.get("bounceSubType", "")
+                    b_reason_combined = f"{b_sub} - {diag_code}" if diag_code else b_sub
+                    _suppress_contact(email, "bounce", bounce_reason=b_reason_combined)
+                    logger.info(f"[SES] Hard bounce: {email} reason: {b_reason_combined}")
 
         elif event_type == "Complaint":
             complaint = message.get("complaint", {})

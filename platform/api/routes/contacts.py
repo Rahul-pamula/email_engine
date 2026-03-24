@@ -9,7 +9,7 @@ import pandas as pd
 import logging
 from services.contact_service import ContactService
 from services.batch_service import BatchService
-from utils.jwt_middleware import require_active_tenant
+from utils.jwt_middleware import require_active_tenant, verify_jwt_token, JWTPayload, require_admin_or_owner, apply_data_isolation
 from utils.supabase_client import db
 from utils.rabbitmq_client import mq_client  # Added for Background Jobs
 from utils.file_parser import parse_file
@@ -65,7 +65,8 @@ async def list_contacts(
     batch_id: Optional[str] = None,
     domain: Optional[str] = None,
     domains: Optional[str] = None,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """List contacts with pagination, search, and optional batch filter"""
     requested_domains = []
@@ -74,7 +75,7 @@ async def list_contacts(
     elif domain:
         requested_domains.append(domain)
 
-    return ContactService.get_contacts(tenant_id, page, limit, search, batch_id, requested_domains)
+    return ContactService.get_contacts(tenant_id, jwt_payload, page, limit, search, batch_id, requested_domains)
 
 
 @router.get("/domains")
@@ -123,7 +124,8 @@ async def import_contacts(
     first_name_col: Optional[str] = None,
     last_name_col: Optional[str] = None,
     custom_mappings: Optional[str] = None,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """
     Import contacts with field mapping + batch tracking.
@@ -171,7 +173,8 @@ async def import_contacts(
                 "email": normalized_email,
                 "email_domain": ContactService.extract_email_domain(normalized_email),
                 "first_name": str(row.get(first_name_col, "")).strip() if first_name_col and pd.notna(row.get(first_name_col)) else "",
-                "last_name": str(row.get(last_name_col, "")).strip() if last_name_col and pd.notna(row.get(last_name_col)) else ""
+                "last_name": str(row.get(last_name_col, "")).strip() if last_name_col and pd.notna(row.get(last_name_col)) else "",
+                "created_by_user_id": jwt_payload.user_id
             }
             
             # Build custom fields from dynamic mapping
@@ -265,7 +268,8 @@ async def get_job_status(job_id: str, tenant_id: str = Depends(require_active_te
 @router.post("/bulk-delete")
 async def bulk_delete_contacts(
     body: BulkDeleteRequest,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    _ = Depends(require_admin_or_owner)
 ):
     """Delete multiple selected contacts"""
     if not body.contact_ids:
@@ -279,7 +283,7 @@ async def bulk_delete_contacts(
 
 
 @router.delete("/all")
-async def delete_all_contacts(tenant_id: str = Depends(require_active_tenant)):
+async def delete_all_contacts(tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Delete ALL contacts for tenant (reset)"""
     deleted_count = ContactService.delete_all(tenant_id)
 
@@ -306,7 +310,7 @@ async def list_batches(tenant_id: str = Depends(require_active_tenant)):
 
 
 @router.delete("/batch/{batch_id}")
-async def delete_batch(batch_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def delete_batch(batch_id: str, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Delete all contacts from a specific import batch"""
     deleted_count = BatchService.delete_batch(tenant_id, batch_id)
     return {"deleted_count": deleted_count}
@@ -324,7 +328,8 @@ class ResolveErrorRequest(BaseModel):
 @router.post("/resolve-error")
 async def resolve_error(
     body: ResolveErrorRequest,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Resolve a failed contact by manually adding corrected data"""
     import json as json_lib
@@ -363,7 +368,8 @@ async def resolve_error(
         "email_domain": ContactService.extract_email_domain(email),
         "first_name": body.first_name.strip() or None,
         "last_name": body.last_name.strip() or None,
-        "import_batch_id": body.batch_id
+        "import_batch_id": body.batch_id,
+        "created_by_user_id": jwt_payload.user_id
     }
     db.client.table("contacts")\
         .upsert(contact_data, on_conflict="tenant_id,email")\
@@ -393,19 +399,27 @@ async def resolve_error(
 class UpdateTagsRequest(BaseModel):
     tags: List[str]
 
+@router.get("/suppression")
+async def get_suppressed_contacts(
+    page: int = 1,
+    limit: int = 50,
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
+):
+    """List contacts that bounced, unsubscribed, or complained"""
+    return ContactService.get_suppression_list(tenant_id, jwt_payload, page, limit)
+
 @router.get("/{contact_id}")
 async def get_contact(
     contact_id: str,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Get a single contact by ID"""
     try:
-        result = db.client.table("contacts")\
-            .select("*")\
-            .eq("id", contact_id)\
-            .eq("tenant_id", tenant_id)\
-            .single()\
-            .execute()
+        query = db.client.table("contacts").select("*").eq("id", contact_id).eq("tenant_id", tenant_id)
+        query = apply_data_isolation(query, jwt_payload)
+        result = query.single().execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="Contact not found")
         return result.data
@@ -418,10 +432,19 @@ async def get_contact(
 async def update_contact_tags(
     contact_id: str,
     body: UpdateTagsRequest,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Update the tags array for a specific contact"""
     try:
+        # Verify ownership / isolation constraints
+        query = db.client.table("contacts").select("id").eq("id", contact_id).eq("tenant_id", tenant_id)
+        if hasattr(jwt_payload, 'isolation_model'):
+            query = apply_data_isolation(query, jwt_payload)
+        
+        if not query.execute().data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        
         updated = ContactService.update_tags(tenant_id, contact_id, body.tags)
         return {"status": "success", "contact": updated}
     except Exception as e:
@@ -432,10 +455,19 @@ async def update_contact_tags(
 async def update_contact(
     contact_id: str,
     body: UpdateContactRequest,
-    tenant_id: str = Depends(require_active_tenant)
+    tenant_id: str = Depends(require_active_tenant),
+    jwt_payload: JWTPayload = Depends(verify_jwt_token)
 ):
     """Update a contact email and custom fields."""
     try:
+        # Verify ownership / isolation constraints
+        query = db.client.table("contacts").select("id").eq("id", contact_id).eq("tenant_id", tenant_id)
+        if hasattr(jwt_payload, 'isolation_model'):
+            query = apply_data_isolation(query, jwt_payload)
+        
+        if not query.execute().data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+            
         contact = ContactService.update_contact(
             tenant_id=tenant_id,
             contact_id=contact_id,
@@ -452,17 +484,9 @@ async def update_contact(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update contact: {str(e)}")
 
-@router.get("/suppression")
-async def get_suppressed_contacts(
-    page: int = 1,
-    limit: int = 50,
-    tenant_id: str = Depends(require_active_tenant)
-):
-    """List contacts that bounced, unsubscribed, or complained"""
-    return ContactService.get_suppression_list(tenant_id, page, limit)
 
 @router.get("/export")
-async def export_contacts(tenant_id: str = Depends(require_active_tenant)):
+async def export_contacts(tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Export all contacts for the tenant as a CSV file"""
     try:
         csv_data = ContactService.export_contacts(tenant_id)
@@ -476,7 +500,7 @@ async def export_contacts(tenant_id: str = Depends(require_active_tenant)):
 
 
 @router.delete("/{contact_id}")
-async def delete_contact(contact_id: str, tenant_id: str = Depends(require_active_tenant)):
+async def delete_contact(contact_id: str, tenant_id: str = Depends(require_active_tenant), _ = Depends(require_admin_or_owner)):
     """Delete a single contact"""
     try:
         result = db.client.table("contacts")\
