@@ -103,6 +103,7 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
 - Tiered validation sequence rejecting malformed domains and detecting Disposable Email Providers instantly.
 - Complex deduplication and append behavior preventing collisions.
 - Contact scoring system assigning Engagement Scores (e.g., "Inactive", "Highly Engaged").
+- **Smart Data Mapping & Splitting**: Enforce strict JSON key normalization during CSV imports (e.g., mapping "Full Name" to `first_name` and `last_name` via automatic string splitting) to guarantee Merge Tags resolve correctly.
 
 **[FRONTEND]**
 - robust Contacts grid implementing native search, sorting, and pagination logic.
@@ -140,6 +141,7 @@ To prevent platform/system emails from going to spam due to DMARC/Spoofing rules
 **[BACKEND]**
 - Snapshotting logic immutably locking campaign HTML and metadata exactly at send time.
 - Spintax capability injecting alternating subject variations and localized merge-tag parsing.
+- **Merge Tag Fallback Engine**: Systematically injects default fallback strings (e.g., "Customer") when a personalization token like `{{first_name}}` attempts to map to an empty database field, preventing broken or awkward emails.
 - Scheduling engine committing tasks to execution timestamps.
 - Dispatch throttling gate controlling total per-minute injection rates preventing SMTP connection flooding.
 
