@@ -7,29 +7,13 @@ import {
     Filter,
     Info
 } from "lucide-react";
-
-/* ============================================================
-   REPORTS - Light Mode
-   ============================================================ */
-
-const colors = {
-    bgPrimary: 'var(--bg-primary)',
-    bgSecondary: '#f8fafc',
-    bgElevated: '#f1f5f9',
-    borderSubtle: '#e2e8f0',
-    textPrimary: '#0f172a',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
-    accentBlue: '#2563eb',
-    chartBar1: '#3b82f6', // blue-500
-    chartBar2: '#93c5fd', // blue-300
-};
+import { PageHeader, Button, StatCard } from "@/components/ui";
 
 const summaryMetrics = [
-    { label: "Emails Sent", value: "245.2k", change: "+12%" },
-    { label: "Avg Open Rate", value: "42.3%", change: "+2.1%" },
-    { label: "Avg Click Rate", value: "8.7%", change: "-0.5%" },
-    { label: "Bounces", value: "1.2%", change: "+0.1%" },
+    { label: "Emails Sent", value: "245.2k", trendValue: 12, trendLabel: "from last period" },
+    { label: "Avg Open Rate", value: "42.3%", trendValue: 2.1, trendLabel: "from last period" },
+    { label: "Avg Click Rate", value: "8.7%", trendValue: -0.5, trendLabel: "from last period" },
+    { label: "Bounces", value: "1.2%", trendValue: 0.1, trendLabel: "from last period" },
 ];
 
 const ispPerformance = [
@@ -41,123 +25,63 @@ const ispPerformance = [
 
 export default function ReportsPage() {
     return (
-        <>
+        <div className="space-y-8 pb-8">
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'end',
-                marginBottom: '32px'
-            }}>
-                <div>
-                    <h1 style={{
-                        fontSize: '24px',
-                        fontWeight: 600,
-                        color: colors.textPrimary,
-                        margin: 0,
-                        letterSpacing: '-0.02em',
-                    }}>
-                        Reports
-                    </h1>
-                    <p style={{
-                        fontSize: '14px',
-                        color: colors.textSecondary,
-                        margin: '4px 0 0 0',
-                    }}>
-                        Analytics and performance insights
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '6px',
-                        color: colors.textSecondary,
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                    }}>
-                        <Calendar style={{ width: '16px', height: '16px' }} />
-                        Last 30 Days
-                    </button>
-                    <button style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '6px',
-                        color: colors.textSecondary,
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                    }}>
-                        <Download style={{ width: '16px', height: '16px' }} />
-                        Export
-                    </button>
-                </div>
-            </div>
+            <PageHeader 
+                title="Reports" 
+                subtitle="Analytics and performance insights"
+                action={
+                    <div className="flex gap-3">
+                        <Button variant="outline">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Last 30 Days
+                        </Button>
+                        <Button variant="outline">
+                            <Download className="w-4 h-4 mr-2" />
+                            Export
+                        </Button>
+                    </div>
+                }
+            />
 
             {/* Summary Cards */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '16px',
-                marginBottom: '32px',
-            }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {summaryMetrics.map((m) => (
-                    <div key={m.label} style={{
-                        padding: '20px',
-                        backgroundColor: colors.bgPrimary,
-                        border: `1px solid ${colors.borderSubtle}`,
-                        borderRadius: '8px',
-                    }}>
-                        <div style={{ fontSize: '14px', color: colors.textMuted }}>{m.label}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: colors.textPrimary, margin: '8px 0' }}>{m.value}</div>
-                        <div style={{ fontSize: '12px', color: m.change.startsWith('+') ? '#16a34a' : '#dc2626' }}>
-                            {m.change} from last period
-                        </div>
-                    </div>
+                    <StatCard 
+                        key={m.label} 
+                        label={m.label} 
+                        value={m.value} 
+                        trend={m.trendValue} 
+                        trendLabel={m.trendLabel}
+                    />
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Chart Placeholder */}
-                <div style={{
-                    padding: '24px',
-                    backgroundColor: colors.bgPrimary,
-                    border: `1px solid ${colors.borderSubtle}`,
-                    borderRadius: '8px',
-                    minHeight: '300px',
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: colors.textPrimary }}>Email Performance</h3>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.chartBar1 }}></div> Sent
+                <div className="lg:col-span-2 p-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)] min-h-[300px]">
+                    <div className="flex justify-between mb-6">
+                        <h3 className="font-semibold text-[var(--text-primary)]">Email Performance</h3>
+                        <div className="flex gap-4">
+                            <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                                <div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> Sent
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.textSecondary }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.chartBar2 }}></div> Opens
+                            <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                                <div className="w-2.5 h-2.5 rounded-sm bg-blue-300"></div> Opens
                             </div>
                         </div>
                     </div>
 
                     {/* Mock Bar Chart */}
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '200px', paddingBottom: '24px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
+                    <div className="flex items-end justify-between h-[200px] pb-6 border-b border-[var(--border)] gap-2">
                         {[60, 45, 75, 50, 80, 65, 90, 55, 70, 40, 60, 85].map((h, i) => (
-                            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '6%' }}>
-                                <div style={{ width: '100%', height: `${h * 0.4}%`, backgroundColor: colors.chartBar2, borderRadius: '2px' }}></div>
-                                <div style={{ width: '100%', height: `${h}%`, backgroundColor: colors.chartBar1, borderRadius: '2px' }}></div>
+                            <div key={i} className="flex flex-col gap-0.5 items-center w-full max-w-[20px]">
+                                <div className="w-full bg-blue-300 rounded-[var(--radius-sm)]" style={{ height: `${h * 0.4}%` }}></div>
+                                <div className="w-full bg-blue-500 rounded-[var(--radius-sm)]" style={{ height: `${h}%` }}></div>
                             </div>
                         ))}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', color: colors.textMuted, fontSize: '12px' }}>
+                    <div className="flex justify-between mt-3 text-xs text-[var(--text-muted)]">
                         <span>Jan 1</span>
                         <span>Jan 7</span>
                         <span>Jan 14</span>
@@ -167,84 +91,85 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Bot Filtering Card */}
-                <div style={{
-                    padding: '24px',
-                    backgroundColor: colors.bgPrimary,
-                    border: `1px solid ${colors.borderSubtle}`,
-                    borderRadius: '8px',
-                }}>
-                    <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: colors.textPrimary }}>Bot Filtering</h3>
-                    <p style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '24px' }}>
+                <div className="p-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)]">
+                    <h3 className="mb-4 font-semibold text-[var(--text-primary)]">Bot Filtering</h3>
+                    <p className="text-sm text-[var(--text-secondary)] mb-6">
                         We automatically filter out bot clicks and opens to ensure your metrics are accurate.
                     </p>
 
-                    <div style={{ marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '14px', color: colors.textSecondary }}>Bot Opens Blocked</span>
-                            <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>12.4k</span>
+                    <div className="space-y-6">
+                        <div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-sm text-[var(--text-secondary)]">Bot Opens Blocked</span>
+                                <span className="text-sm font-semibold text-[var(--text-primary)]">12.4k</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-[var(--bg-hover)] rounded-full overflow-hidden">
+                                <div className="w-[35%] h-full bg-[var(--accent)] rounded-full"></div>
+                            </div>
                         </div>
-                        <div style={{ width: '100%', height: '6px', backgroundColor: colors.bgElevated, borderRadius: '3px' }}>
-                            <div style={{ width: '35%', height: '100%', backgroundColor: colors.accentBlue, borderRadius: '3px' }}></div>
+
+                        <div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-sm text-[var(--text-secondary)]">Bot Clicks Blocked</span>
+                                <span className="text-sm font-semibold text-[var(--text-primary)]">4.1k</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-[var(--bg-hover)] rounded-full overflow-hidden">
+                                <div className="w-[18%] h-full bg-[var(--accent)] rounded-full"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '14px', color: colors.textSecondary }}>Bot Clicks Blocked</span>
-                            <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>4.1k</span>
-                        </div>
-                        <div style={{ width: '100%', height: '6px', backgroundColor: colors.bgElevated, borderRadius: '3px' }}>
-                            <div style={{ width: '18%', height: '100%', backgroundColor: colors.accentBlue, borderRadius: '3px' }}></div>
-                        </div>
-                    </div>
-
-                    <div style={{ marginTop: '24px', padding: '12px', backgroundColor: colors.bgElevated, borderRadius: '6px', fontSize: '12px', color: colors.textSecondary, display: 'flex', gap: '8px' }}>
-                        <Info style={{ width: '16px', height: '16px', flexShrink: 0, color: colors.accentBlue }} />
+                    <div className="mt-6 p-3 bg-[var(--bg-hover)] rounded-[var(--radius)] text-xs text-[var(--text-secondary)] flex gap-2 items-start">
+                        <Info className="w-4 h-4 text-[var(--accent)] shrink-0 mt-0.5" />
                         <span>Accuracy rate of 99.8% based on heuristic analysis.</span>
                     </div>
                 </div>
             </div>
 
             {/* ISP Performance Table */}
-            <div style={{
-                backgroundColor: colors.bgPrimary,
-                border: `1px solid ${colors.borderSubtle}`,
-                borderRadius: '8px',
-                overflow: 'hidden',
-            }}>
-                <div style={{ padding: '16px 24px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: colors.textPrimary }}>ISP Performance</h3>
+            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden hidden md:block mt-6">
+                <div className="p-4 md:px-6 border-b border-[var(--border)]">
+                    <h3 className="font-semibold text-[var(--text-primary)]">ISP Performance</h3>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: colors.bgSecondary }}>
-                            {['ISP', 'Emails Sent', 'Open Rate', 'Click Rate', 'Complaint Rate'].map(h => (
-                                <th key={h} style={{
-                                    padding: '12px 24px',
-                                    textAlign: 'left',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                    textTransform: 'uppercase',
-                                    color: colors.textMuted,
-                                    borderBottom: `1px solid ${colors.borderSubtle}`,
-                                    letterSpacing: '0.05em',
-                                }}>{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {ispPerformance.map((isp) => (
-                            <tr key={isp.name} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
-                                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>{isp.name}</td>
-                                <td style={{ padding: '16px 24px', fontSize: '14px', color: colors.textSecondary }}>{isp.sent}</td>
-                                <td style={{ padding: '16px 24px', fontSize: '14px', color: colors.textSecondary }}>{isp.openRate}</td>
-                                <td style={{ padding: '16px 24px', fontSize: '14px', color: colors.textSecondary }}>{isp.clickRate}</td>
-                                <td style={{ padding: '16px 24px', fontSize: '14px', color: colors.textSecondary }}>{isp.complaint}</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
+                        <thead>
+                            <tr className="bg-[var(--bg-primary)] border-b border-[var(--border)]">
+                                {['ISP', 'Emails Sent', 'Open Rate', 'Click Rate', 'Complaint Rate'].map(h => (
+                                    <th key={h} className="px-6 py-3 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">{h}</th>
+                                ))}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border)]">
+                            {ispPerformance.map((isp) => (
+                                <tr key={isp.name} className="hover:bg-[var(--bg-hover)] transition-colors">
+                                    <td className="px-6 py-4 text-sm font-medium text-[var(--text-primary)]">{isp.name}</td>
+                                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{isp.sent}</td>
+                                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{isp.openRate}</td>
+                                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{isp.clickRate}</td>
+                                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{isp.complaint}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </>
+            
+            {/* Mobile View for ISP */}
+            <div className="md:hidden space-y-4 mt-6">
+                <h3 className="font-semibold text-[var(--text-primary)]">ISP Performance</h3>
+                {ispPerformance.map((isp) => (
+                    <div key={isp.name} className="p-4 bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)]">
+                        <div className="font-semibold text-[var(--text-primary)] mb-2">{isp.name}</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-[var(--text-secondary)]">
+                            <div>Sent: {isp.sent}</div>
+                            <div>Open: {isp.openRate}</div>
+                            <div>Click: {isp.clickRate}</div>
+                            <div>Complaint: {isp.complaint}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

@@ -17,10 +17,10 @@ const buttonVariants = cva(
                 purple: 'bg-[var(--accent-purple)] text-white hover:bg-violet-600',
             },
             size: {
-                sm: 'h-8 px-3 text-xs',
+                sm: 'h-8 px-3 text-xs relative after:absolute after:left-1/2 after:top-1/2 after:h-[44px] after:w-[44px] after:-translate-x-1/2 after:-translate-y-1/2',
                 md: 'h-10 px-4 text-sm',
                 lg: 'h-12 px-6 text-base',
-                icon: 'h-9 w-9 p-0',
+                icon: 'h-9 w-9 p-0 relative after:absolute after:left-1/2 after:top-1/2 after:h-[44px] after:w-[44px] after:-translate-x-1/2 after:-translate-y-1/2',
             },
         },
         defaultVariants: {

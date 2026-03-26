@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useCallback } from 'react';
+import { ReactNode, useEffect, useRef, useCallback } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from './Button';
 
@@ -30,20 +30,60 @@ function ConfirmModal({
     children,
 }: ConfirmModalProps) {
 
-    // Close on Escape key
+    const modalRef = useRef<HTMLDivElement>(null);
+    const cancelBtnRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLElement | null>(null);
+
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === 'Escape' && !isLoading) onClose();
+        if (e.key === 'Escape' && !isLoading) {
+            onClose();
+            return;
+        }
+
+        if (e.key === 'Tab' && modalRef.current) {
+            const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusableElements.length === 0) return;
+            
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement) {
+                    lastElement.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastElement) {
+                    firstElement.focus();
+                    e.preventDefault();
+                }
+            }
+        }
     }, [onClose, isLoading]);
 
     useEffect(() => {
         if (isOpen) {
+            triggerRef.current = document.activeElement as HTMLElement | null;
             document.addEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'hidden';
-        }
-        return () => {
+            
+            // Set initial focus to cancel button to prevent accidental submission
+            // Use setTimeout to ensure the modal is rendered before focusing
+            const timeoutId = setTimeout(() => {
+                cancelBtnRef.current?.focus();
+            }, 10);
+            return () => clearTimeout(timeoutId);
+        } else {
             document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = '';
-        };
+            
+            // Restore focus
+            if (triggerRef.current) {
+                triggerRef.current.focus();
+            }
+        }
     }, [isOpen, handleKeyDown]);
 
     if (!isOpen) return null;
@@ -66,6 +106,7 @@ function ConfirmModal({
                 className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
                 <div
+                    ref={modalRef}
                     className="
                         bg-[var(--bg-card)] border border-[var(--border)]
                         rounded-[var(--radius-lg)] shadow-2xl w-full max-w-md
@@ -120,6 +161,7 @@ function ConfirmModal({
                     {/* Actions */}
                     <div className="flex items-center justify-end gap-3 p-4">
                         <Button
+                            ref={cancelBtnRef}
                             variant="outline"
                             size="sm"
                             onClick={onClose}

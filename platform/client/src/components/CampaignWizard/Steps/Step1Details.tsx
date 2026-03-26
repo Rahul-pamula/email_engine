@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { FileText, Loader2, AlertTriangle, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
+import { Button } from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -64,7 +65,7 @@ export default function Step1Details({ data, updateData, onNext }: any) {
         };
 
         fetchData();
-    }, [token]);
+    }, [token, data.domain_id, data.domain_name, updateData]);
 
     const validate = () => {
         const e: any = {};
@@ -83,104 +84,87 @@ export default function Step1Details({ data, updateData, onNext }: any) {
         onNext();
     };
 
-    const inputStyle = (hasError: boolean) => ({
-        width: '100%',
-        padding: '10px 14px',
-        background: 'rgba(9, 9, 11, 0.8)',
-        border: `1px solid ${hasError ? 'rgba(239, 68, 68, 0.5)' : 'rgba(63, 63, 70, 0.4)'}`,
-        borderRadius: '8px',
-        color: '#FAFAFA',
-        fontSize: '14px',
-        outline: 'none',
-        transition: 'border-color 0.2s',
-    });
+    const inputClasses = (hasError: boolean) => `
+        w-full px-3.5 py-2.5 bg-[var(--bg-input)] border rounded-[var(--radius)] text-sm text-[var(--text-primary)] focus:outline-none transition-colors
+        ${hasError ? 'border-[var(--danger)] focus:ring-1 focus:ring-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]'}
+    `;
 
-    const labelStyle = {
-        display: 'block',
-        fontSize: '13px',
-        fontWeight: 500,
-        color: '#A1A1AA',
-        marginBottom: '6px',
-    };
+    const labelClasses = "block text-sm font-medium text-[var(--text-muted)] mb-1.5";
 
     return (
-        <div style={{ padding: '36px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-                <div style={{
-                    width: '40px', height: '40px', borderRadius: '10px',
-                    background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                    <FileText size={18} color="#3B82F6" />
+        <div className="p-9">
+            <div className="flex items-center gap-3 mb-7">
+                <div className="w-10 h-10 rounded-[var(--radius)] bg-[var(--accent-glow)] border border-[var(--accent)] flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-[var(--accent)]" />
                 </div>
                 <div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#FAFAFA', margin: 0 }}>Campaign Details</h2>
-                    <p style={{ fontSize: '13px', color: '#71717A', margin: 0 }}>Set the basic information and sender identity</p>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)] m-0">Campaign Details</h2>
+                    <p className="text-sm text-[var(--text-secondary)] m-0 mt-0.5">Set the basic information and sender identity</p>
                 </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="flex flex-col gap-6">
 
                 {/* Core Campaign Info */}
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#E4E4E7', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={14} className="text-blue-400" /> General Information
+                <div className="p-5 bg-[var(--bg-card)] rounded-[var(--radius-lg)] border border-[var(--border)]">
+                    <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-4 flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-[var(--accent)]" /> General Information
                     </h3>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="flex flex-col gap-5">
                         <div>
-                            <label style={labelStyle}>Internal Campaign Name *</label>
+                            <label className={labelClasses}>Internal Campaign Name *</label>
                             <input
                                 type="text"
                                 placeholder="e.g. Q3 Summer Spectacular"
                                 value={data.name || ''}
                                 onChange={(e) => { updateData({ name: e.target.value }); setErrors((p: any) => ({ ...p, name: '' })); }}
-                                style={inputStyle(!!errors.name)}
+                                className={inputClasses(!!errors.name)}
                             />
-                            {errors.name && <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>{errors.name}</p>}
-                            <p style={{ fontSize: '12px', color: '#52525B', marginTop: '4px' }}>Only you and your team will see this name.</p>
+                            {errors.name && <p className="text-xs text-[var(--danger)] mt-1">{errors.name}</p>}
+                            <p className="text-xs text-[var(--text-muted)] mt-1">Only you and your team will see this name.</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Sender Identity Section */}
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#E4E4E7', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <User size={14} className="text-purple-400" /> Sender Identity
+                <div className="p-5 bg-[var(--bg-card)] rounded-[var(--radius-lg)] border border-[var(--border)]">
+                    <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-4 flex items-center gap-2">
+                        <User className="w-3.5 h-3.5 text-[var(--accent-purple)]" /> Sender Identity
                     </h3>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="flex flex-col gap-5">
                         <div>
-                            <label style={labelStyle}>Sender Name (From Name) *</label>
+                            <label className={labelClasses}>Sender Name (From Name) *</label>
                             <input
                                 type="text"
                                 placeholder="e.g. John from MyCompany"
                                 value={data.from_name || ''}
                                 onChange={(e) => { updateData({ from_name: e.target.value }); setErrors((p: any) => ({ ...p, from_name: '' })); }}
-                                style={inputStyle(!!errors.from_name)}
+                                className={inputClasses(!!errors.from_name)}
                             />
-                            {errors.from_name && <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>{errors.from_name}</p>}
+                            {errors.from_name && <p className="text-xs text-[var(--danger)] mt-1">{errors.from_name}</p>}
                         </div>
 
                         <div>
-                            <label style={labelStyle}>Sender Email Address *</label>
+                            <label className={labelClasses}>Sender Email Address *</label>
 
                             {loading ? (
-                                <div className="flex items-center gap-2 p-3 rounded-md bg-zinc-900/50 border border-zinc-800 text-zinc-400 text-sm">
-                                    <Loader2 size={16} className="animate-spin" /> Loading verified senders...
+                                <div className="flex items-center gap-2 p-3 rounded-[var(--radius)] bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-muted)] text-sm">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Loading verified senders...
                                 </div>
                             ) : senders.length === 0 ? (
-                                <div className="flex flex-col gap-2 p-4 rounded-md bg-amber-950/20 border border-amber-900/50 text-amber-400 text-sm">
+                                <div className="flex flex-col gap-2 p-4 rounded-[var(--radius)] bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] text-sm">
                                     <div className="flex items-center gap-2 font-medium">
-                                        <AlertTriangle size={16} /> No Verified Senders Found
+                                        <AlertTriangle className="w-4 h-4" /> No Verified Senders Found
                                     </div>
-                                    <p className="text-amber-400/80">You must verify an email inbox ownership before launching campaigns.</p>
-                                    <Link href="/settings/senders" className="text-blue-400 hover:text-blue-300 underline mt-1 w-fit">
+                                    <p className="opacity-80">You must verify an email inbox ownership before launching campaigns.</p>
+                                    <Link href="/settings/senders" className="text-[var(--accent)] hover:underline mt-1 w-fit">
                                         Go to Sender Settings →
                                     </Link>
                                 </div>
                             ) : (
-                                <div>
+                                <div className="relative">
                                     <select
                                         value={
                                             data.from_prefix && data.domain_id
@@ -196,8 +180,7 @@ export default function Step1Details({ data, updateData, onNext }: any) {
                                             }
                                             setErrors((p: any) => ({ ...p, from_prefix: '', domain_id: '' }));
                                         }}
-                                        className="w-full bg-zinc-900/80 border text-zinc-100 px-4 py-3 rounded-md text-sm focus:ring-2 focus:ring-blue-500/50 outline-none cursor-pointer hover:bg-zinc-800/60 transition-colors appearance-none"
-                                        style={{ borderColor: errors.from_prefix || errors.domain_id ? 'rgba(239, 68, 68, 0.5)' : 'rgba(63, 63, 70, 0.4)' }}
+                                        className={`${inputClasses(!!(errors.from_prefix || errors.domain_id))} appearance-none cursor-pointer`}
                                     >
                                         <option value="" disabled>Select Verified Sender</option>
                                         {senders.map(sender => (
@@ -205,42 +188,40 @@ export default function Step1Details({ data, updateData, onNext }: any) {
                                         ))}
                                     </select>
 
-                                    {/* Custom Dropdown Arrow */}
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4" style={{ top: '228px' }}>
-                                        <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4">
+                                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                                     </div>
 
-                                    {errors.from_prefix && <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>{errors.from_prefix}</p>}
+                                    {errors.from_prefix && <p className="text-xs text-[var(--danger)] mt-1">{errors.from_prefix}</p>}
                                 </div>
                             )}
                         </div>
 
-                        <div className="pt-2 border-t border-zinc-800/50">
-                            <label style={labelStyle}>Email Subject Line *</label>
+                        <div className="pt-5 border-t border-[var(--border)]">
+                            <label className={labelClasses}>Email Subject Line *</label>
                             <input
                                 type="text"
                                 placeholder="e.g. Don't miss our biggest sale of the year!"
                                 value={data.subject || ''}
                                 onChange={(e) => { updateData({ subject: e.target.value }); setErrors((p: any) => ({ ...p, subject: '' })); }}
-                                style={inputStyle(!!errors.subject)}
+                                className={inputClasses(!!errors.subject)}
                             />
-                            {errors.subject && <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>{errors.subject}</p>}
-                            <p style={{ fontSize: '12px', color: '#52525B', marginTop: '4px' }}>This is the main headline recipients will see in their inbox.</p>
+                            {errors.subject && <p className="text-xs text-[var(--danger)] mt-1">{errors.subject}</p>}
+                            <p className="text-xs text-[var(--text-muted)] mt-1">This is the main headline recipients will see in their inbox.</p>
                         </div>
                     </div>
                 </div>
 
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '32px', paddingTop: '24px', borderTop: '1px solid rgba(63, 63, 70, 0.3)' }}>
-                <button
+            <div className="flex justify-end mt-8 pt-6 border-t border-[var(--border)]">
+                <Button
                     onClick={handleNext}
-                    className="btn-premium"
+                    variant="primary"
                     disabled={loading || senders.length === 0}
-                    style={{ opacity: (loading || senders.length === 0) ? 0.5 : 1, cursor: (loading || senders.length === 0) ? 'not-allowed' : 'pointer' }}
                 >
                     Next Step →
-                </button>
+                </Button>
             </div>
         </div>
     );

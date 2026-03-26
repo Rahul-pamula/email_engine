@@ -6,7 +6,11 @@ import { Search, Bell, Menu, User, Settings, CreditCard, LogOut, ChevronDown, Ch
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function Header() {
+interface HeaderProps {
+    setMobileMenuOpen?: () => void;
+}
+
+export default function Header({ setMobileMenuOpen }: HeaderProps) {
     const { user, logout } = useAuth();
     const pathname = usePathname();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -35,7 +39,10 @@ export default function Header() {
         <header className="h-16 border-b border-[var(--border)] bg-[var(--bg-primary)] px-6 flex items-center justify-between sticky top-0 z-50">
             {/* Left side: Mobile Menu (hidden on desktop) + Breadcrumb placeholder */}
             <div className="flex items-center gap-4 flex-1">
-                <button className="md:hidden text-[var(--text-muted)] hover:text-white p-2 -ml-2 rounded-lg hover:bg-[var(--bg-secondary)]">
+                <button 
+                    onClick={() => setMobileMenuOpen?.()}
+                    className="md:hidden text-[var(--text-muted)] hover:text-white p-2 -ml-2 rounded-lg hover:bg-[var(--bg-secondary)]"
+                >
                     <Menu className="w-5 h-5" />
                 </button>
                 {/* Optional: Add dynamic breadcrumbs here based on pathname */}

@@ -9,7 +9,10 @@ interface LayoutWrapperProps {
     children: React.ReactNode;
 }
 
+import { useState } from "react";
+
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -37,19 +40,12 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     }
 
     return (
-        <div style={{
-            display: 'flex',
-            height: '100vh',
-            overflow: 'hidden'
-        }}>
-            {showSidebar && <Sidebar />}
+        <div className="flex h-screen overflow-hidden relative">
+            {showSidebar && <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />}
 
-            <main className="flex-1 overflow-auto bg-[var(--bg-primary)] flex flex-col">
-                {showSidebar && <Header />}
-                <div className="flex-1" style={{
-                    padding: showSidebar ? '32px' : '0',
-                    maxWidth: showSidebar ? '1280px' : '100%',
-                }}>
+            <main className="flex-1 overflow-auto bg-[var(--bg-primary)] flex flex-col min-w-0">
+                {showSidebar && <Header setMobileMenuOpen={() => setMobileMenuOpen(true)} />}
+                <div className={`flex-1 ${showSidebar ? 'p-4 md:p-8 max-w-7xl mx-auto w-full' : 'w-full'}`}>
                     {children}
                 </div>
             </main>

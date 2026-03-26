@@ -20,22 +20,28 @@ const navItems = [
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+    mobileMenuOpen?: boolean;
+    setMobileMenuOpen?: (open: boolean) => void;
+}
+
+export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
     const { logout } = useAuth();
 
     return (
-        <aside
-            className="flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out border-r border-[var(--border)] relative z-20"
-            style={{
-                width: collapsed ? '72px' : '260px',
-                height: '100vh',
-                backgroundColor: 'rgba(9, 9, 11, 0.65)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)'
-            }}
-        >
+        <>
+            {/* Mobile backdrop */}
+            {mobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+                    onClick={() => setMobileMenuOpen?.(false)} 
+                />
+            )}
+            <aside
+                className={`flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out border-r border-[var(--border)] z-50 fixed md:relative h-screen bg-black/65 backdrop-blur-xl ${collapsed ? 'w-[72px]' : 'w-[260px]'} ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+            >
             {/* Logo Area */}
             <div className="h-20 flex items-center justify-between px-5 border-b border-[var(--border)]">
                 {!collapsed && (
@@ -118,5 +124,6 @@ export default function Sidebar() {
             </nav>
 
         </aside>
+        </>
     );
 }

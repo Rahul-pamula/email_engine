@@ -66,6 +66,17 @@ services:
     networks:
       - email_engine_net
 
+  # ── Mailhog Development SMTP ────────────────────────────
+  mailhog:
+    image: mailhog/mailhog
+    container_name: email_engine_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP endpoint
+      - "8025:8025" # Web UI endpoint
+    networks:
+      - email_engine_net
+
   # ── Frontend ─────────────────────────────────────────────
   client:
     build:

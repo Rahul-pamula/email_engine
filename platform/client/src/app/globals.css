@@ -63,6 +63,38 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 20px var(--accent-glow);
+
+  /* Typography Scale */
+  --text-h1: 2.25rem;
+  --text-h2: 1.5rem;
+  --text-h3: 1.125rem;
+  --text-body: 0.875rem;
+  --text-caption: 0.75rem;
+  --text-mono: 0.875rem;
+
+  /* Additional Semantic Tokens */
+  --accent-purple: #8B5CF6;
+  --info: #0EA5E9;
+  --info-bg: rgba(14, 165, 233, 0.3);
+
+  /* Shadcn UI Base Tokens (HSL for Tailwind compatibility) */
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 4%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border-hsl: 240 3.7% 15.9%;
+  --input-hsl: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
 }
 
 /* ============================================================
@@ -89,9 +121,6 @@ body {
 }
 
 /* Focus States */
-*:focus {
-  outline: none;
-}
 
 *:focus-visible {
   outline: 2px solid var(--accent);
