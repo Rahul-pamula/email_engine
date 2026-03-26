@@ -6,7 +6,7 @@
 
 ---
 
-## Purpose
+### Purpose
 
 Phase 1 establishes the application foundation that every later feature depends on:
 
