@@ -33,28 +33,50 @@ graph TD
     classDef provider fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:#fff,font-weight:bold,rx:10px,ry:10px;
     classDef db fill:#64748b,stroke:#475569,stroke-width:2px,color:#fff,rx:5px,ry:5px;
     
-    User([Platform User / Tenant]) ::: userNode --> |Interacts with| App[Sh_R_Mail Platform] ::: coreApp
+    User([Platform User / Tenant]) --> |Interacts with| App[Sh_R_Mail Platform]
+    class User userNode;
+    class App coreApp;
     
     subgraph App Logic
-        App --> Auth[Auth & Core Logistics] ::: coreApp
-        App --> Campaigns[Campaign Engine] ::: coreApp
+        Auth[Auth & Core Logistics]
+        Campaigns[Campaign Engine]
+        App --> Auth
+        App --> Campaigns
+        class Auth coreApp;
+        class Campaigns coreApp;
     end
 
     subgraph Dual Processing Queues
-        Auth --> |"OTP, Invites, Password Resets"| SysQueue[(System Queue)] ::: db
-        Campaigns --> |"Newsletters, Bulk Promos"| TenantQueue[(Campaign Queue)] ::: db
+        SysQueue[(System Queue)]
+        TenantQueue[(Campaign Queue)]
+        Auth --> |"OTP, Invites, Password Resets"| SysQueue
+        Campaigns --> |"Newsletters, Bulk Promos"| TenantQueue
+        class SysQueue db;
+        class TenantQueue db;
 
-        SysQueue --> SysWorker[System Mail Worker] ::: sysWorker
-        TenantQueue --> TenantWorker[Tenant Mail Worker] ::: tenWorker
+        SysWorker[System Mail Worker]
+        TenantWorker[Tenant Mail Worker]
+        SysQueue --> SysWorker
+        TenantQueue --> TenantWorker
+        class SysWorker sysWorker;
+        class TenantWorker tenWorker;
     end
 
     subgraph Email Delivery Providers
-        SysWorker --> |"shrmail.app@gmail.com"| Gmail[Gmail SMTP] ::: provider
-        TenantWorker --> |"sales@tenantdomain.com"| SES[AWS SES] ::: provider
+        Gmail[Gmail SMTP]
+        SES[AWS SES]
+        SysWorker --> |"shrmail.app@gmail.com"| Gmail
+        TenantWorker --> |"sales@tenantdomain.com"| SES
+        class Gmail provider;
+        class SES provider;
     end
 
-    Gmail --> |"Guaranteed Inbox Delivery"| Inbox1([User Inbox]) ::: userNode
-    SES --> |"Isolated Tenant Reputation"| Inbox2([Subscriber Inbox]) ::: userNode
+    Inbox1([User Inbox])
+    Inbox2([Subscriber Inbox])
+    Gmail --> |"Guaranteed Inbox Delivery"| Inbox1
+    SES --> |"Isolated Tenant Reputation"| Inbox2
+    class Inbox1 userNode;
+    class Inbox2 userNode;
 
     classDef dualBox fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,stroke-dasharray: 5 5;
     class Dual Processing Queues dualBox;
