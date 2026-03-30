@@ -34,24 +34,32 @@ This subsystem relies heavily on message brokers for asynchronous throughput and
 ## 4. Execution Flow
 ```mermaid
 flowchart TD
-    API(API Request: Send) --> CM(Campaign Service)
-    CM -->|Create Snapshot| DB[(PostgreSQL)]
-    CM -->|Enqueue| CQ(Campaign Queue)
+    %% Node Styling Definitions
+    classDef request fill:#8b5cf6,stroke:#5b21b6,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef db fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef queue fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef worker fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef provider fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef status fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+
+    API(API Request: Send) ::: request --> CM(Campaign Service) ::: worker
+    CM -->|Create Snapshot| DB[(PostgreSQL)] ::: db
+    CM -->|Enqueue| CQ(Campaign Queue) ::: queue
     
     subgraph Workers
-    CW(Campaign Worker)
-    DW(Dispatch Worker)
+    CW(Campaign Worker) ::: worker
+    DW(Dispatch Worker) ::: worker
     end
     
     CQ -->|Process Batch| CW
-    CW -->|Resolve Audience| AR(Audience Resolution Engine)
-    AR -->|Chunk into Batches| DQ(Dispatch Queue)
+    CW -->|Resolve Audience| AR(Audience Resolution Engine) ::: worker
+    AR -->|Chunk into Batches| DQ(Dispatch Queue) ::: queue
     
     DQ -->|Consume| DW
-    DW -->|Compile tokens| PE(Personalization Engine)
-    PE -->|Send API Call| ESP[Email Provider SES / SendGrid]
+    DW -->|Compile tokens| PE(Personalization Engine) ::: worker
+    PE -->|Send API Call| ESP[Email Provider SES / SendGrid] ::: provider
     
-    ESP -->|Webhook / API Response| Tracking(Observability/Webhooks)
+    ESP -->|Webhook / API Response| Tracking(Observability/Webhooks) ::: status
     Tracking -->|Update Status| DB
 ```
 
