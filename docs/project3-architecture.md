@@ -7,7 +7,7 @@ The Email Testing System serves as the final validation gateway before any campa
 - **Multi-Device & Multi-Client Preview**: Simulates rendering across desktop, mobile, and popular email clients.
 - **Test Email Dispatch**: Ability to send test emails to internal stakeholders or predefined testing addresses.
 - **Personalization Validation**: Checks token integrity, default fallbacks, and data injection safety.
-- **Accessibility Checks (WCAG Hints)**: Built-in validation to ensure emails are readable by assistive technologies.
+- **Deep Accessibility Enforcement (WCAG 2.2 AA)**: Scans rendered HTML to suggest WCAG improvements and strictly enforces accessibility mandates on the generated output (e.g., semantic headings, alt texts).
 
 ## 3. Architecture Design
 The testing system is built as a highly cohesive set of NestJS modules and services designed for rapid execution and stateless validation.
@@ -17,7 +17,7 @@ The testing system is built as a highly cohesive set of NestJS modules and servi
 - **`PreviewService`**: Handles HTML processing and viewport simulations.
 - **`ValidationService`**: Responsible for parsing tokens and verifying injectability.
 - **`MockDataService`**: Manages and injects mock payloads into templates for previewing.
-- **`AccessibilityEngine`**: Scans rendered HTML to suggest WCAG improvements.
+- **`AccessibilityEngine`**: A rigorous validation layer that inspects the MJML Abstract Syntax Tree (AST) before transpilation. It enforces `alt` attributes on images, validates semantic heading hierarchies (e.g., H1 -> H2 -> H3), and automatically injects `lang` and `dir` parameters based on the tenant's profile to support screen reader pronunciation engines.
 
 ### Mermaid Flow Diagram
 ```mermaid
@@ -50,10 +50,10 @@ flowchart TD
    - The frontend receives the rendered HTML, validation errors, and WCAG hints.
    - If requested, the **Preview Service** can forward the rendered artifact to an external ESP (e.g., AWS SES) as a single test email.
 
-## 5. Architectural Improvements (Beyond Legacy Systems)
+## 5. Architectural Improvements
 - **Real-time Preview Updates**: Websocket-driven or fast stateless API endpoints that allow live updating as the user edits the template.
-- **Email HTML Linting**: Embedded structural linting (e.g., checking for unclosed tags, CSS inline requirements).
-- **Accessibility Validation Engine**: Dedicated component for evaluating contrast ratios and alt-text presence.
+- **Email HTML Linting & AST Validation**: Embedded structural linting (e.g., checking for unclosed tags, CSS inline requirements). Templates failing critical accessibility checks (like missing image alt tags) are outright rejected.
+- **Automated Accessibility Testing in CI/CD**: Integration of `@axe-core/playwright` into the automated testing lifecycle. Every pull request simulates zero-configuration workflows (e.g., testing the wizard) and mercilessly fails builds if WCAG 2.2 AA violations are detected (WCAG 2.2 SC 2.4.11, 2.4.13, etc.).
 - **Deep Error Reporting**: Context-aware error mapping that highlights the exact line of templating failure instead of generic backend exceptions.
 
 ## 6. Multi-Tenant & RBAC Strategy

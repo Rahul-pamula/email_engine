@@ -6,9 +6,9 @@ The Email Sending & Scheduling system is the robust, high-throughput engine of t
 ## 2. Core Features
 - **Campaign Execution**: Instant and bulk dispatching of emails.
 - **Advanced Scheduling**: Deferred execution logic supporting cron and delayed BullMQ jobs.
-- **Audience Resolution**: Dynamic segmentation, list collapsing, and contact evaluation just-in-time.
+- **Audience Resolution**: Dynamic segmentation, list collapsing, and contact evaluation just-in-time, rendered on the frontend via high-density virtualized ARIA grids employing a 'Roving Tabindex' model for keyboard users.
 - **Personalization Engine**: Fast token replacement at scale on a per-recipient basis.
-- **Real-time Status Tracking**: Tracking dispatch progress, bounces, and engagements.
+- **Real-time Status Tracking & Accessible Analytics**: Tracking dispatch progress, bounces, and engagements via WCAG-compliant SVG charts featuring dual-encoding (pattern + color) and data sonification for severe visual impairments.
 
 ## 3. Architecture Design
 This subsystem relies heavily on message brokers for asynchronous throughput and fault tolerance.
@@ -75,11 +75,14 @@ flowchart TD
 - **Domain Verification**: Enforces that the `sender_identity` associated with a campaign has passed internal checks for DNS records (SPF, DKIM, DMARC) before the campaign can transition from `Draft`.
 - **Pre-flight Checks**: Drops or quarantines emails with missing required headers (e.g., `List-Unsubscribe`).
 
-## 9. Next-Gen Improvements (Beyond Legacy Systems)
+## 9. Next-Gen Improvements
 - **Idempotency Rules**: Redis locks and robust job ID generation mapped to contact IDs ensure emails are strictly sent "at most once".
 - **Provider Failover**: Circuit breaker patterns detecting consecutive SES failures can dynamically route traffic to a secondary ESP (e.g., SendGrid).
 - **Bounce-Rate Circuit Breaker**: If the dispatch queue detects an anomalous spike in bounces for a campaign, it pauses execution and alerts the tenant.
-- **Extensive Observability**: Structured JSON logging and Prometheus metrics exported from BullMQ for real-time dashboarding.
+- **Accessibility-First Audience & Analytics Views (WCAG 2.2 AA)**: 
+  - *Virtualized Contacts Grid*: To render millions of contacts, `react-window` uses custom syncs with `aria-rowindex` and a strict 'Roving Tabindex' to preserve screen reader table navigation without exhausting DOM memory.
+  - *Interactive Data Sonification*: Charts map performance values to audio frequencies (pitch mapping) so users can mentally structure trends, backed by a hidden HTML `<table>` fallback.
+- **Extensive Observability**: Structured JSON logging and Prometheus metrics exported from BullMQ for real-time dashboarding, with accessible dual-encoded (pattern fills + contrast boundaries) heatmap interfaces.
 
 ## 10. Multi-Tenant & RBAC Strategy
 - **Row-Level Security (RLS)**: PostgreSQL policies dictate that no worker can accidentally read or process cross-tenant data. 
