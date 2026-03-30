@@ -30,17 +30,18 @@ We use a primary **Testing Module** that acts as the traffic cop for all incomin
 - And the **Accessibility Engine**, which scans the rendered HTML."
 
 ## 4. The Flow (Walking through the Diagram)
-*(Note: Bring up the Mermaid diagram on the screen here)*
+*(Note: Display the first Mermaid diagram on the screen here, showing the Testing System)*
 
 **Speaker:** 
-"Let's trace the happy path. 
-When a user requests a preview in the UI, that API call hits our Gateway and is routed to the Testing Module. 
+"Let's trace this flow using a real-world scenario. Imagine a marketer—we'll call him Alex—is drafting a highly dynamic 'Black Friday' campaign email. He hits 'Preview'. 
 
-Immediately, two things happen: The Validation Service checks the template tokens, and the Preview Service grabs the mock data payload. Everything is then passed into our **Rendering Pipeline**.
+If you look at the top left of our diagram, the purple **User box** sends this request, hitting the amber **API Gateway box**. The gateway routes this directly to the blue **Testing Module box**, which acts as our central traffic cop.
 
-The pipeline compiles the HTML and instantly passes it through our Accessibility Engine. What the frontend gets back in a matter of milliseconds is the fully rendered HTML alongside any WCAG warnings or validation errors. 
+From here, the flow splits into parallel execution. The module delegates to the green **Validation Service box** to verify that Alex’s dynamic tokens—like `{{first_name}}`—aren't broken. Simultaneously, the green **Preview Service box** fetches a dummy user profile from the green **Mock Data System box**.
 
-If the user then decides they want a physical test email sent, the Testing Module just hands that off to a mock dispatch queue, which routes it through our ESP—like AWS SES or SendGrid."
+Once we have the template and the validated data, it funnels into the blue **Rendering Pipeline box**. The HTML is compiled instantly and passed into a crucial validation gate: the green **Accessibility Engine box**. 
+
+In milliseconds, the system outputs two red boxes back to Alex: the **Rendered Preview HTML**, and crucially, a list of **WCAG Warnings** if he forgot something like an image alt-tag. If Alex is happy, he clicks 'Send Test', routing through the blue **Mock Dispatch Queue box** directly to our slate-colored **Email Provider box** (like AWS SES)."
 
 ## 5. Advanced Improvements (Why this is better than what we had)
 **Speaker:** 
@@ -63,18 +64,22 @@ We also enforce strict RBAC (Role-Based Access Control). Admins and Marketers ca
 ---
 
 # New Architectural Flow: Designing for Everyone
+*(Note: Switch the screen to display the 'Universal Accessibility Architecture' diagram)*
+
 **Speaker:** 
-"Before I wrap up, there was a major discussion we had internally: *If our motive is to deliver this platform to every type of person, how do we guarantee that in the architecture?* 
+"Before I wrap up, I want to pivot to a major internal discussion we had: *If our motive is to deliver this platform to every type of person, how do we guarantee that in the architecture?* We completely rebuilt the system's core sensory state mechanics so it works natively for any user, without dropping them into broken secondary experiences.
 
-We realized we couldn't just 'slap on' accessibility as an afterthought. We completely re-engineered the core flows of the platform so it works natively for any user, in any environment, without dropping them into secondary or broken experiences. 
+Let’s walk through this second architectural diagram, again using real-world scenarios. 
 
-Here are the flows we designed that make this possible:
+Imagine a marketer with severe motor impairments attempting to use a drag-and-drop builder, or a system architect who is fully blind trying to analyze campaign metrics. If you look under **Layer 1: Frontend Interface**, you'll see the purple **Any User Input box**. Rather than dropping actions, this input triggers three heavily engineered UI flows via the blue frontend boxes:
 
-1. **The 'No-Mouse' Operation Flow**: Instead of forcing users to click-and-drag, our builder uses a **State-Based Reordering Model**. You press `Enter` to 'grab' a block, use arrows to move it, and hit `Enter` to 'drop'.
-2. **The High-Scale Virtualization Flow**: You can't render two million contacts on screen without exhausting memory. We use a **Roving Tabindex** paired with programmatic DOM syncing. It means a keyboard user can fly through millions of rows natively.
-3. **The Sonification & Dual-Encoding Flow**: Analytics are notoriously visual. We eliminated that bottleneck. We introduced **Data Sonification**—mapping data trajectories to audio pitch—and **Dual-Encoding**, meaning every color on a heatmap is paired with a unique texture pattern.
-4. **The Cognitive Memory Flow**: We implement strict redundant entry caching. What a user types in onboarding auto-populates everywhere else so they don't have to memorize settings. And timeouts are never silent—they throw an assertive 2-minute warning so users never lose focused work.
-5. **The Paired Sensory Feedback Flow**: No system event relies solely on an auditory 'beep' or solely on a visual color change. Every state shift immediately emits both a visual banner *and* an audio assertion simultaneously. No one is left guessing."
+1. **The State-Based Canvas Editing box**: Instead of forcing a mouse click-and-drag, a user can press `Enter` to 'grab' a block and move it with their keyboard arrows. Notice how this feeds directly into **Layer 2's** green **MJML AST Engine box**, which immediately executes behind-the-scenes semantic validation.
+2. **The Virtualized Grids box**: To load millions of contacts securely for screen readers, we apply a 'Roving Tabindex'. This hooks directly into the green **ARIA Sync Controller box** to maintain absolute DOM integrity without crashing the browser's memory limit.
+3. **The Dual-Encoded Heatmaps box**: For users reviewing visual analytics, we route that data into the green **Data Sonification Engine box**. It maps the Y-Axis performance data to audible pitch frequencies—so users can physically *hear* the trajectory of their campaign!
+
+Finally, look at **Layer 3 and Layer 4** at the bottom. All processing funnels into the amber **Redundant Entry Cache box** (Memory Layer) to preserve cognitive working memory—meaning a user never has to re-type a forgotten setting. Whenever state changes, this cache fires signals to the red **Sensory Feedback boxes**, triggering both a **Visual Toast** *and* an **ARIA-Live Audio Assertion** simultaneously. 
+
+By mapping the architecture exactly this way, no user is ever left guessing what the system just calculated."
 
 ---
 
