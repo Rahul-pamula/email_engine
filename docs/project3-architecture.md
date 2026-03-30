@@ -17,7 +17,7 @@ The testing system is built as a highly cohesive set of NestJS modules and servi
 - **`PreviewService`**: Handles HTML processing and viewport simulations.
 - **`ValidationService`**: Responsible for parsing tokens and verifying injectability.
 - **`MockDataService`**: Manages and injects mock payloads into templates for previewing.
-- **`AccessibilityEngine`**: A rigorous validation layer that inspects the MJML Abstract Syntax Tree (AST) before transpilation. It enforces `alt` attributes on images, validates semantic heading hierarchies (e.g., H1 -> H2 -> H3), and automatically injects `lang` and `dir` parameters based on the tenant's profile to support screen reader pronunciation engines.
+- **`AccessibilityEngine`**: A rigorous validation layer that inspects the MJML Abstract Syntax Tree (AST) before transpilation. It enforces `alt` attributes on images, validates semantic heading hierarchies (e.g., H1 -> H2 -> H3), and automatically injects `lang` and `dir` parameters based on the user's profile to support screen reader pronunciation engines.
 
 ### Mermaid Flow Diagram
 ```mermaid
@@ -56,7 +56,7 @@ flowchart TD
 
 ## 4. Execution Flow
 1. **Initiation**: The user requests a preview via the frontend client.
-2. **Token Checks**: The `ValidationService` extracts variables like `{{name}}` and maps them against default tenant fallback data or a user-provided mock payload.
+2. **Token Checks**: The `ValidationService` extracts variables like `{{name}}` and maps them against default fallback data or a user-provided mock payload.
 3. **Pipeline Processing**: 
    - The raw template and payload are passed to the **Rendering Pipeline**.
    - HTML is compiled.
@@ -71,8 +71,8 @@ flowchart TD
 - **Automated Accessibility Testing in CI/CD**: Integration of `@axe-core/playwright` into the automated testing lifecycle. Every pull request simulates zero-configuration workflows (e.g., testing the wizard) and mercilessly fails builds if WCAG 2.2 AA violations are detected (WCAG 2.2 SC 2.4.11, 2.4.13, etc.).
 - **Deep Error Reporting**: Context-aware error mapping that highlights the exact line of templating failure instead of generic backend exceptions.
 
-## 6. Multi-Tenant & RBAC Strategy
-- **Tenant Isolation**: Every API endpoint within the `TestingModule` strictly binds to `tenant_id`. Templates and user mock data are strongly isolated via Row-Level Security in PostgreSQL.
+## 6. Security & RBAC Strategy
+- **Data Isolation**: Every API endpoint within the `TestingModule` strictly binds to the authenticated user. Templates and user mock data are strongly isolated via Row-Level Security in PostgreSQL.
 - **RBAC Roles**: 
   - *Admins/Marketers*: Allowed to initiate rendering, save mock payloads, and dispatch test emails.
   - *Viewers*: Can only request previews; sending test emails is explicitly blocked.
