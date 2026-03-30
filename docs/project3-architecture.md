@@ -30,21 +30,28 @@ flowchart TD
     classDef output fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:#fff;
     classDef provider fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff;
 
-    User([User]) ::: user -->|Request Preview| API(API Gateway) ::: gateway
-    API --> TM(Testing Module) ::: module
-    TM --> VS(Validation Service) ::: service
-    VS -->|Check Tokens| TE(Token Engine) ::: service
-    TM --> PS(Preview Service) ::: service
-    PS -->|Inject Mock Data| MDS(Mock Data System) ::: service
-    PS -->|Render HTML| RR(Rendering Pipeline) ::: module
+    User([User]) -->|Request Preview| API(API Gateway)
+    API --> TM(Testing Module)
+    TM --> VS(Validation Service)
+    VS -->|Check Tokens| TE(Token Engine)
+    TM --> PS(Preview Service)
+    PS -->|Inject Mock Data| MDS(Mock Data System)
+    PS -->|Render HTML| RR(Rendering Pipeline)
     
-    RR -->|Analyze| AE(Accessibility Engine) ::: service
-    RR --> Output([Rendered Preview HTML]) ::: output
-    AE --> Hints([WCAG Warnings]) ::: output
+    RR -->|Analyze| AE(Accessibility Engine)
+    RR --> Output([Rendered Preview HTML])
+    AE --> Hints([WCAG Warnings])
     
     User -->|Send Test| TM
-    TM --> Dispatch(Mock Dispatch Queue) ::: module
-    Dispatch --> ESP[Email Provider SES / SendGrid] ::: provider
+    TM --> Dispatch(Mock Dispatch Queue)
+    Dispatch --> ESP[Email Provider SES / SendGrid]
+
+    class User user
+    class API gateway
+    class TM,RR,Dispatch module
+    class VS,TE,PS,MDS,AE service
+    class Output,Hints output
+    class ESP provider
 ```
 
 ## 4. Execution Flow
@@ -91,31 +98,36 @@ flowchart TD
 
     subgraph InterfaceLayer ["1. Frontend Interface & Interaction Layer"]
         User([Any User Input])
-        User -->|Enter/Space & Arrows| NMF["State-Based Canvas Editing<br>(Keyboard-only Flow)"] ::: frontend
-        User -->|Arrow Navigation| VDG["Virtualized Grids<br>(Roving Tabindex)"] ::: frontend
-        User -->|Visual/Audio Toggle| HC["Dual-Encoded Heatmaps<br>(Pattern Fills + Colors)"] ::: frontend
+        User -->|Enter/Space & Arrows| NMF["State-Based Canvas Editing<br>(Keyboard-only Flow)"]
+        User -->|Arrow Navigation| VDG["Virtualized Grids<br>(Roving Tabindex)"]
+        User -->|Visual/Audio Toggle| HC["Dual-Encoded Heatmaps<br>(Pattern Fills + Colors)"]
     end
 
     subgraph EngineLayer ["2. Processing & Validation Layer"]
-        NMF --> AST["MJML AST Engine<br>(Validates Semantics & Alt-Tags)"] ::: process
-        VDG --> ARI["ARIA Sync Controller<br>(Maintains DOM Integrity)"] ::: process
-        HC --> DS["Data Sonification Engine<br>(Y-Axis Pitch Mapping)"] ::: process
+        NMF --> AST["MJML AST Engine<br>(Validates Semantics & Alt-Tags)"]
+        VDG --> ARI["ARIA Sync Controller<br>(Maintains DOM Integrity)"]
+        HC --> DS["Data Sonification Engine<br>(Y-Axis Pitch Mapping)"]
     end
 
     subgraph MemoryLayer ["3. State & Backend Layer"]
-        AST --> RE["Redundant Entry Cache<br>(Preserves Working Memory)"] ::: store
+        AST --> RE["Redundant Entry Cache<br>(Preserves Working Memory)"]
         ARI --> RE
         DS --> RE
     end
 
     subgraph FeedbackLayer ["4. Universal Sensary Feedback"]
-        RE -->|Paired Visual| Toast["Visual Toasts & Indicators"] ::: event
-        RE -->|Paired Assertive| ALive["ARIA-Live Audio Assertions"] ::: event
+        RE -->|Paired Visual| Toast["Visual Toasts & Indicators"]
+        RE -->|Paired Assertive| ALive["ARIA-Live Audio Assertions"]
     end
     
     %% Loop back to user
     Toast -.-> |Synchronous Context| User 
     ALive -.-> |Synchronous Context| User 
+
+    class NMF,VDG,HC frontend
+    class AST,ARI,DS process
+    class RE store
+    class Toast,ALive event
 ```
 
 ### The Engineering Flows

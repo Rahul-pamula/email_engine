@@ -42,25 +42,32 @@ flowchart TD
     classDef provider fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff,rx:5px,ry:5px;
     classDef status fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:#fff,rx:5px,ry:5px;
 
-    API(API Request: Send) ::: request --> CM(Campaign Service) ::: worker
-    CM -->|Create Snapshot| DB[(PostgreSQL)] ::: db
-    CM -->|Enqueue| CQ(Campaign Queue) ::: queue
+    API(API Request: Send) --> CM(Campaign Service)
+    CM -->|Create Snapshot| DB[(PostgreSQL)]
+    CM -->|Enqueue| CQ(Campaign Queue)
     
     subgraph Workers
-    CW(Campaign Worker) ::: worker
-    DW(Dispatch Worker) ::: worker
+    CW(Campaign Worker)
+    DW(Dispatch Worker)
     end
     
     CQ -->|Process Batch| CW
-    CW -->|Resolve Audience| AR(Audience Resolution Engine) ::: worker
-    AR -->|Chunk into Batches| DQ(Dispatch Queue) ::: queue
+    CW -->|Resolve Audience| AR(Audience Resolution Engine)
+    AR -->|Chunk into Batches| DQ(Dispatch Queue)
     
     DQ -->|Consume| DW
-    DW -->|Compile tokens| PE(Personalization Engine) ::: worker
-    PE -->|Send API Call| ESP[Email Provider SES / SendGrid] ::: provider
+    DW -->|Compile tokens| PE(Personalization Engine)
+    PE -->|Send API Call| ESP[Email Provider SES / SendGrid]
     
-    ESP -->|Webhook / API Response| Tracking(Observability/Webhooks) ::: status
+    ESP -->|Webhook / API Response| Tracking(Observability/Webhooks)
     Tracking -->|Update Status| DB
+
+    class API request
+    class CM,CW,DW,AR,PE worker
+    class DB db
+    class CQ,DQ queue
+    class ESP provider
+    class Tracking status
 ```
 
 ## 5. Scheduling Flow
