@@ -61,3 +61,58 @@ flowchart TD
 - **RBAC Roles**: 
   - *Admins/Marketers*: Allowed to initiate rendering, save mock payloads, and dispatch test emails.
   - *Viewers*: Can only request previews; sending test emails is explicitly blocked.
+
+---
+
+# Platform-Wide: Universal Accessibility Architecture
+
+*Note: Following deep discussions on ensuring our platform is delivered to every type of person without compromise, we engineered an entirely new architectural flow. This is not a secondary feature—this is the foundational flow of how our platform handles interactions, memory, and sensory feedback natively.*
+
+To ensure our platform scales smoothly to users operating in any environment—whether that involves high-contrast mode, assistive auditory tools, or keyboard-only navigation—we have structurally integrated **Universal Access Flows** directly into the core engineering layer. We do not rely on standard DOM overlays; instead, we re-engineered the state mechanics.
+
+### The Inclusive Engineering Diagram
+
+```mermaid
+flowchart TD
+    %% Node Styling Definitions
+    classDef frontend fill:#2563EB,stroke:#1E40AF,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef process fill:#059669,stroke:#065F46,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef engine fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef store fill:#D97706,stroke:#92400E,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef event fill:#DC2626,stroke:#991B1B,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+
+    subgraph InterfaceLayer ["1. Frontend Interface & Interaction Layer"]
+        User([Any User Input])
+        User -->|Enter/Space & Arrows| NMF[State-Based Canvas Editing\n(Keyboard-only Flow)] ::: frontend
+        User -->|Arrow Navigation| VDG[Virtualized Grids\n(Roving Tabindex)] ::: frontend
+        User -->|Visual/Audio Toggle| HC[Dual-Encoded Heatmaps\n(Pattern Fills + Colors)] ::: frontend
+    end
+
+    subgraph EngineLayer ["2. Processing & Validation Layer"]
+        NMF --> AST[MJML AST Engine\n(Validates Semantics & Alt-Tags)] ::: process
+        VDG --> ARI[ARIA Sync Controller\n(Maintains DOM Integrity)] ::: process
+        HC --> DS[Data Sonification Engine\n(Y-Axis Pitch Mapping)] ::: process
+    end
+
+    subgraph MemoryLayer ["3. State & Backend Layer"]
+        AST --> RE[Redundant Entry Cache\n(Preserves Working Memory)] ::: store
+        ARI --> RE
+        DS --> RE
+    end
+
+    subgraph FeedbackLayer ["4. Universal Sensary Feedback"]
+        RE -->|Paired Visual| Toast[Visual Toasts & Indicators] ::: event
+        RE -->|Paired Assertive| ALive[ARIA-Live Audio Assertions] ::: event
+    end
+    
+    %% Loop back to user
+    Toast -.-> |Synchronous Context| User 
+    ALive -.-> |Synchronous Context| User 
+```
+
+### The Engineering Flows
+1. **The 'No-Mouse' Operation Flow**: Instead of forcing users to click-and-hold (which is physically impossible for many), our builder uses a dedicated **State-Based Reordering Model**. You press `Enter` to *"grab"*, use arrows to move, and hit `Enter` again to *"drop"*.
+2. **The High-Scale Virtualization Flow**: You cannot render 2 Million contacts on screen without exhausting DOM memory or crashing a screen reader. We use a **`Roving Tabindex`** paired with programmatic `aria-rowcount`/`aria-rowindex` syncing. The UI only loads 20 rows visually, but the programmatic tree seamlessly informs the computer you are navigating "Row 145,000 of 2,000,000".
+3. **The Data Sonification & Dual-Encoding Flow**: Analytics are notoriously visual dependent. We eliminate this bottleneck by introducing **Data Sonification** (mapping data trajectories to audio pitch frequencies) and **Dual-Encoding** (ensuring all color-based data also maps to a unique SVG texture pattern or direct numeric annotation).
+4. **The Cognitive Memory Flow**: We implement strict **Redundant Entry Prevention** caching. What a user types in onboarding auto-populates all future wizards. Timeouts are never silent—they throw an assertive 2-minute visual/screen-reader warning so users never randomly lose focused work.
+5. **The Paired Sensory Feedback Flow**: No system event (success, loading, or failure) relies solely on a "beep" or solely on a quick color change. Every single state shift immediately emits both a visual toast banner *and* an `aria-live` assertive announcement simultaneously, guaranteeing universal state awareness.

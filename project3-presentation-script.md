@@ -60,7 +60,25 @@ Every API request is strictly bound to a `tenant_id`. We use Row-Level Security 
 
 We also enforce strict RBAC (Role-Based Access Control). Admins and Marketers can trigger test emails and save mock payloads. Standalone 'Viewers', however, are capped at read-only previews. They cannot dispatch emails, ensuring both security and strict cost control."
 
-## 7. Conclusion
+---
+
+# New Architectural Flow: Designing for Everyone
+**Speaker:** 
+"Before I wrap up, there was a major discussion we had internally: *If our motive is to deliver this platform to every type of person, how do we guarantee that in the architecture?* 
+
+We realized we couldn't just 'slap on' accessibility as an afterthought. We completely re-engineered the core flows of the platform so it works natively for any user, in any environment, without dropping them into secondary or broken experiences. 
+
+Here are the flows we designed that make this possible:
+
+1. **The 'No-Mouse' Operation Flow**: Instead of forcing users to click-and-drag, our builder uses a **State-Based Reordering Model**. You press `Enter` to 'grab' a block, use arrows to move it, and hit `Enter` to 'drop'.
+2. **The High-Scale Virtualization Flow**: You can't render two million contacts on screen without exhausting memory. We use a **Roving Tabindex** paired with programmatic DOM syncing. It means a keyboard user can fly through millions of rows natively.
+3. **The Sonification & Dual-Encoding Flow**: Analytics are notoriously visual. We eliminated that bottleneck. We introduced **Data Sonification**—mapping data trajectories to audio pitch—and **Dual-Encoding**, meaning every color on a heatmap is paired with a unique texture pattern.
+4. **The Cognitive Memory Flow**: We implement strict redundant entry caching. What a user types in onboarding auto-populates everywhere else so they don't have to memorize settings. And timeouts are never silent—they throw an assertive 2-minute warning so users never lose focused work.
+5. **The Paired Sensory Feedback Flow**: No system event relies solely on an auditory 'beep' or solely on a visual color change. Every state shift immediately emits both a visual banner *and* an audio assertion simultaneously. No one is left guessing."
+
+---
+
+## Conclusion
 **Speaker:** 
 "To sum it up, this Email Testing System is fast, highly modular, and brings enterprise-grade validation—from token integrity to accessibility—right into the marketer's immediate workflow. 
 
