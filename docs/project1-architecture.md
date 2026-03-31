@@ -98,60 +98,46 @@ To intelligently support multi-tenancy alongside highly dynamic schemas (custom 
 
 ---
 
-## 11. Platform-Wide: Universal Accessibility Architecture
+## 11. Purpose-Built Accessibility for Data Ingestion
 
-*Note: Following deep discussions on ensuring our platform is delivered to every type of person without compromise, we engineered an entirely new architectural flow. This is not a secondary feature—this is the foundational flow of how our platform handles interactions, memory, and sensory feedback natively.*
+*Note: Rather than reusing standard platform-wide accessibility overlays, the Data Ingestion system requires a bespoke inclusivity architecture. Managing millions of rows, background jobs, and complex field mappings presents unique cognitive and perceptive challenges that must be solved at the architectural level.*
 
-To ensure our platform scales smoothly to users operating in any environment—whether that involves high-contrast mode, assistive auditory tools, or keyboard-only navigation—we have structurally integrated **Universal Access Flows** directly into the core engineering layer of the Data Uploading System. We do not rely on standard DOM overlays; instead, we re-engineered the state mechanics.
-
-### The Inclusive Engineering Diagram
+### The Ingest-Specific Inclusivity Diagram
 
 ```mermaid
 flowchart TD
-    %% Node Styling Definitions
-    classDef frontend fill:#2563EB,stroke:#1E40AF,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
-    classDef process fill:#059669,stroke:#065F46,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
-    classDef engine fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
-    classDef store fill:#D97706,stroke:#92400E,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
-    classDef event fill:#DC2626,stroke:#991B1B,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef client fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    classDef worker fill:#334155,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef accessible fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#fff;
 
-    subgraph InterfaceLayer ["1. Frontend Interface & Interaction Layer"]
-        User([Any User Input])
-        User -->|Enter/Space & Arrows| NMF["State-Based Field Mapping<br>(Keyboard-only Flow)"]
-        User -->|Arrow Navigation| VDG["Virtualized Upload Grids<br>(Roving Tabindex)"]
-        User -->|Visual/Audio Toggle| HC["Dual-Encoded Formats<br>(Pattern Fills + Colors)"]
+    subgraph ClientLayer ["1. Client-Side Cognitive Management"]
+        UI[File Upload Context] -->|Chunk Pointers| SW(ServiceWorker Resiliency Cache)
+        UI --> WC(Sequential Wizard Engine<br>Linear Field Mapping)
+        UI --> EG(ARIA TreeGrid<br>Error Spatialization)
     end
 
-    subgraph EngineLayer ["2. Processing & Validation Layer"]
-        NMF --> MAP["Field Mapping Engine<br>(Validates Field Rules)"]
-        VDG --> ARI["ARIA Sync Controller<br>(Maintains DOM Integrity)"]
-        HC --> DS["Data Sonification Engine<br>(Upload Progress Audio)"]
+    subgraph ServerLayer ["2. Data Pipeline"]
+        WC --> API[Ingestion Gateway]
+        SW --> API
+        API --> S3[(AWS S3 Storage)]
+        API --> Redis[Job Queue]
     end
 
-    subgraph MemoryLayer ["3. State & Backend Layer"]
-        MAP --> RE["Redundant Entry Cache<br>(Preserves Mapping Memory)"]
-        ARI --> RE
-        DS --> RE
+    subgraph FeedbackLayer ["3. Asynchronous Awareness"]
+        Redis --> Worker[NestJS Workers]
+        Worker --> DB[(PostgreSQL)]
+        Worker -.-> |WebSockets| SS(Socket Event Emitter)
+        SS -.-> |OS-Level Hook| ClientNotif([Global ARIA-Live Notifier])
     end
 
-    subgraph FeedbackLayer ["4. Universal Sensory Feedback"]
-        RE -->|Paired Visual| Toast["Visual Toasts & Error Reports"]
-        RE -->|Paired Assertive| ALive["ARIA-Live Audio Assertions"]
-    end
-    
-    %% Loop back to user
-    Toast -.-> |Synchronous Context| User 
-    ALive -.-> |Synchronous Context| User 
-
-    class NMF,VDG,HC frontend
-    class MAP,ARI,DS process
-    class RE store
-    class Toast,ALive event
+    class UI,WC,EG,ClientNotif accessible
+    class SW,S3,Redis,DB client
+    class Worker,SS,API worker
 ```
 
-### The Engineering Flows
-1. **The 'No-Mouse' Operation Flow**: During the critical data-mapping phase, instead of forcing users to drag-and-drop CSV headers to database fields (which is physically impossible for many), our builder uses a dedicated **State-Based Reordering Model**. You press `Enter` to "grab" a CSV column, use arrows to move through target database fields, and hit `Enter` again to "drop" and connect them.
-2. **The High-Scale Virtualization Flow**: You cannot render a preview of 2 Million uploaded contacts on screen without exhausting DOM memory or crashing a screen reader. We use a **`Roving Tabindex`** paired with programmatic `aria-rowcount`/`aria-rowindex` syncing. The data preview UI only loads 20 rows visually, but the programmatic tree seamlessly informs the computer you are navigating "Row 145,000 of 2,000,000" inside the massive CSV.
-3. **The Data Sonification & Dual-Encoding Flow**: Data ingestion stats (like invalid rows vs successful rows) are notoriously visual-dependent. We eliminate this bottleneck by introducing **Data Sonification** (mapping the rapid speed of the data upload progress to dynamic audio frequencies) and **Dual-Encoding** (ensuring error graphs and analytics map to unique SVG texture patterns or direct numeric annotations, not just red/green colors).
-4. **The Cognitive Memory Flow**: Uploading a large list with 50 custom fields is computationally and structurally exhausting. We implement strict **Redundant Entry Prevention** caching. What a user maps in their first upload auto-populates all future list uploads. If background parsing takes 15 minutes, timeouts are never silent—they throw an assertive 2-minute visual and screen-reader warning so users never randomly lose focused work.
-5. **The Paired Sensory Feedback Flow**: No system event (e.g., encountering a malformed email structure during the validation step) relies solely on a "beep" or solely on a red highlight. Every single validation failure or state shift immediately emits both a visual toast banner *and* an `aria-live` assertive announcement simultaneously, guaranteeing universal state awareness.
+### Purpose-Built Inclusivity Workflows
+
+1. **Sequential Mapping Mechanics (Cognitive Load Reduction)**: Mapping 50 CSV columns to 50 database fields is overwhelming visually and cognitively. Instead of grid-based or drag-and-drop interfaces, we architected the **Sequential Wizard Engine**. It transforms mapping into a serialized, step-by-step API flow (e.g., "Step 1/50: Map 'Email'"). It enforces *one decision per view*, drastically reducing cognitive fatigue and simplifying keyboard navigation.
+2. **Tabular Error Spatialization**: Reading a data table containing 5,000 random validation errors row-by-row is impossible for screen-reader users. The UI receives raw error logs from the backend and passes them through an **ARIA TreeGrid Aggregator**. It groups errors locally by *Type* rather than by *Row* (e.g., creating an expandable node that announces: "400 entries with Invalid Emails"). This creates immediate spatial understanding of bulk errors without linear reading.
+3. **Resilient Data Recovery Flow**: Individuals with motor control difficulties or relying on switch-devices may accidentally navigate back or close a tab during a multi-gigabyte upload. We implemented a **ServiceWorker Resiliency Cache** using IndexedDB. It stores file chunk pointers locally. If a session drops, returning to the page triggers an accessible prompt to cleanly resume exactly where the upload left off without forcing the user to re-navigate their file system.
+4. **Asynchronous Job Awareness Pattern (AJAP)**: Parsing a 2.5-million row CSV takes several minutes. Users should not be tethered to a loading spinner. The pipeline pipes BullMQ worker progress through WebSockets directly into a **Global ARIA-Live Notifier**. Even if the user navigates completely away to the Campaign Builder page, their OS-level screen reader will contextually announce: "Background task: Data upload complete. 2.4 million contacts added. 400 errors found."
