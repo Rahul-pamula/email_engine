@@ -113,28 +113,28 @@ flowchart TD
     classDef feedbackLayer fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#0f172a;
     classDef userNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
 
-    User([Screen Reader & Keyboard-Only Users]) ::: userNode
+    User(["Screen Reader & Keyboard-Only Users"])
 
     subgraph Layer1 ["1. Input Layer (WCAG 2.2 AA)"]
-        UploadUI["Upload UI<br>(Keyboard-Only Interaction Model)"] ::: inputLayer
-        SeqWizard["Sequential Mapping Wizard<br>(Cognitive Load Reduction)"] ::: inputLayer
+        UploadUI["Upload UI<br>(Keyboard-Only Interaction Model)"]
+        SeqWizard["Sequential Mapping Wizard<br>(Cognitive Load Reduction)"]
     end
 
     subgraph Layer2 ["2. Processing Layer"]
-        Parser["Parsing Engine<br>(Data Stream)"] ::: processLayer
-        Validator["Validation Service<br>(Syntax & Business Rules)"] ::: processLayer
-        Mapper["Field Mapping Integrator"] ::: processLayer
+        Parser["Parsing Engine<br>(Data Stream)"]
+        Validator["Validation Service<br>(Syntax & Business Rules)"]
+        Mapper["Field Mapping Integrator"]
     end
 
     subgraph Layer3 ["3. Accessibility Intelligence Layer"]
-        ContextEngine["Cognitive Context Engine<br>(Error Spatialization: Row, Column, Field Context)"] ::: intelEngine
-        GridEngine["ARIA Grid Generator<br>(Support for Large Datasets: aria-rowcount & Virtualization)"] ::: intelEngine
-        TreeGrid["ARIA TreeGrid Generator<br>(Error Navigation)"] ::: intelEngine
+        ContextEngine["Cognitive Context Engine<br>(Error Spatialization: Row, Column, Field Context)"]
+        GridEngine["ARIA Grid Generator<br>(Support for Large Datasets: aria-rowcount & Virtualization)"]
+        TreeGrid["ARIA TreeGrid Generator<br>(Error Navigation)"]
     end
 
     subgraph Layer4 ["4. Feedback Layer"]
-        VisualDash["Visual Error Dashboard<br>(High Contrast Mode)"] ::: feedbackLayer
-        AssistiveVoice["Assistive Feedback Engine<br>(Real-Time ARIA-Live Announcements)"] ::: feedbackLayer
+        VisualDash["Visual Error Dashboard<br>(High Contrast Mode)"]
+        AssistiveVoice["Assistive Feedback Engine<br>(Real-Time ARIA-Live Announcements)"]
     end
 
     %% Flow Execution
@@ -156,6 +156,13 @@ flowchart TD
     
     GridEngine -. "Processing Status" .-> AssistiveVoice
     TreeGrid -. "Contextual Error Alerts" .-> AssistiveVoice
+
+    %% Apply Classes
+    class User userNode;
+    class UploadUI,SeqWizard inputLayer;
+    class Parser,Validator,Mapper processLayer;
+    class ContextEngine,GridEngine,TreeGrid intelEngine;
+    class VisualDash,AssistiveVoice feedbackLayer;
 ```
 
 ### Purpose-Built Inclusivity Workflows
