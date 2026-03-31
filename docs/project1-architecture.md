@@ -95,3 +95,63 @@ To intelligently support multi-tenancy alongside highly dynamic schemas (custom 
 - **Real-time Upload Progress:** Integrate WebSockets (e.g., Socket.io) to push granular execution percentage updates from the background workers to the frontend dashboard.
 - **AI-Based Data Cleaning:** Introduce an LLM-assisted or heuristic pre-processing step to intelligently catch typos (e.g., `user@gmial.com` -> `user@gmail.com`) or normalize physical mailing addresses.
 - **Smart Field Mapping:** Automatically detect and logically map column headers against existing database schemas (e.g., confidently routing the CSV column `First Name` to the database field `first_name`) during the initial upload phase via fuzzy string matching algorithms.
+
+---
+
+## 11. Platform-Wide: Universal Accessibility Architecture
+
+*Note: Following deep discussions on ensuring our platform is delivered to every type of person without compromise, we engineered an entirely new architectural flow. This is not a secondary feature—this is the foundational flow of how our platform handles interactions, memory, and sensory feedback natively.*
+
+To ensure our platform scales smoothly to users operating in any environment—whether that involves high-contrast mode, assistive auditory tools, or keyboard-only navigation—we have structurally integrated **Universal Access Flows** directly into the core engineering layer of the Data Uploading System. We do not rely on standard DOM overlays; instead, we re-engineered the state mechanics.
+
+### The Inclusive Engineering Diagram
+
+```mermaid
+flowchart TD
+    %% Node Styling Definitions
+    classDef frontend fill:#2563EB,stroke:#1E40AF,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef process fill:#059669,stroke:#065F46,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef engine fill:#7C3AED,stroke:#5B21B6,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef store fill:#D97706,stroke:#92400E,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+    classDef event fill:#DC2626,stroke:#991B1B,stroke-width:2px,color:#FFFFFF,rx:8px,ry:8px;
+
+    subgraph InterfaceLayer ["1. Frontend Interface & Interaction Layer"]
+        User([Any User Input])
+        User -->|Enter/Space & Arrows| NMF["State-Based Field Mapping<br>(Keyboard-only Flow)"]
+        User -->|Arrow Navigation| VDG["Virtualized Upload Grids<br>(Roving Tabindex)"]
+        User -->|Visual/Audio Toggle| HC["Dual-Encoded Formats<br>(Pattern Fills + Colors)"]
+    end
+
+    subgraph EngineLayer ["2. Processing & Validation Layer"]
+        NMF --> MAP["Field Mapping Engine<br>(Validates Field Rules)"]
+        VDG --> ARI["ARIA Sync Controller<br>(Maintains DOM Integrity)"]
+        HC --> DS["Data Sonification Engine<br>(Upload Progress Audio)"]
+    end
+
+    subgraph MemoryLayer ["3. State & Backend Layer"]
+        MAP --> RE["Redundant Entry Cache<br>(Preserves Mapping Memory)"]
+        ARI --> RE
+        DS --> RE
+    end
+
+    subgraph FeedbackLayer ["4. Universal Sensory Feedback"]
+        RE -->|Paired Visual| Toast["Visual Toasts & Error Reports"]
+        RE -->|Paired Assertive| ALive["ARIA-Live Audio Assertions"]
+    end
+    
+    %% Loop back to user
+    Toast -.-> |Synchronous Context| User 
+    ALive -.-> |Synchronous Context| User 
+
+    class NMF,VDG,HC frontend
+    class MAP,ARI,DS process
+    class RE store
+    class Toast,ALive event
+```
+
+### The Engineering Flows
+1. **The 'No-Mouse' Operation Flow**: During the critical data-mapping phase, instead of forcing users to drag-and-drop CSV headers to database fields (which is physically impossible for many), our builder uses a dedicated **State-Based Reordering Model**. You press `Enter` to "grab" a CSV column, use arrows to move through target database fields, and hit `Enter` again to "drop" and connect them.
+2. **The High-Scale Virtualization Flow**: You cannot render a preview of 2 Million uploaded contacts on screen without exhausting DOM memory or crashing a screen reader. We use a **`Roving Tabindex`** paired with programmatic `aria-rowcount`/`aria-rowindex` syncing. The data preview UI only loads 20 rows visually, but the programmatic tree seamlessly informs the computer you are navigating "Row 145,000 of 2,000,000" inside the massive CSV.
+3. **The Data Sonification & Dual-Encoding Flow**: Data ingestion stats (like invalid rows vs successful rows) are notoriously visual-dependent. We eliminate this bottleneck by introducing **Data Sonification** (mapping the rapid speed of the data upload progress to dynamic audio frequencies) and **Dual-Encoding** (ensuring error graphs and analytics map to unique SVG texture patterns or direct numeric annotations, not just red/green colors).
+4. **The Cognitive Memory Flow**: Uploading a large list with 50 custom fields is computationally and structurally exhausting. We implement strict **Redundant Entry Prevention** caching. What a user maps in their first upload auto-populates all future list uploads. If background parsing takes 15 minutes, timeouts are never silent—they throw an assertive 2-minute visual and screen-reader warning so users never randomly lose focused work.
+5. **The Paired Sensory Feedback Flow**: No system event (e.g., encountering a malformed email structure during the validation step) relies solely on a "beep" or solely on a red highlight. Every single validation failure or state shift immediately emits both a visual toast banner *and* an `aria-live` assertive announcement simultaneously, guaranteeing universal state awareness.
