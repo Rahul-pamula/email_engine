@@ -27,27 +27,43 @@ The ingestion system utilizes a microservices-inspired modular architecture with
 ## 4. Mermaid Flow Diagram
 
 ```mermaid
-graph TD
-    User([User]) -->|Uploads CSV/XLSX| API[API Gateway / NestJS Controller]
-    
+flowchart TD
+    %% 🎨 Class Definitions
+    classDef user fill:#ffffff,stroke:#0f172a,stroke-width:2px,color:#0f172a;
+    classDef api fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e;
+    classDef storage fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12;
+    classDef queue fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95;
+    classDef worker fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef process fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef db fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+
+    %% 👤 User
+    User([User]):::user -->|Uploads CSV/XLSX| API[API Gateway / NestJS Controller]:::api
+
+    %% ⚡ Synchronous Layer
     subgraph "Synchronous Execution"
-        API -->|Streams to| S3[(AWS S3)]
-        API -->|Initializes Job| DB[(PostgreSQL metadata)]
-        API -->|Enqueues Task| Queue[Redis / BullMQ]
+        API -->|Streams to| S3[(AWS S3)]:::storage
+        API -->|Initializes Job| DB[(PostgreSQL Metadata)]:::db
+        API -->|Enqueues Task| Queue[Redis / BullMQ]:::queue
         API -.->|Returns Job ID HTTP 202| User
     end
 
+    %% 🔄 Async Workers
     subgraph "Asynchronous Workers"
-        Queue -->|Consumes Job| Worker[NestJS Background Worker]
+        Queue -->|Consumes Job| Worker[NestJS Background Worker]:::worker
         Worker -->|Downloads Chunk| S3
-        Worker -->|Parses Data| Parser[ParsingService]
-        Parser -->|Validates & Maps| Validator[ValidationService & TransformationService]
-        Validator -->|Upserts Data| Storage[StorageService & DeduplicationEngine]
-        Validator -->|Logs Errors| Audit[AuditService]
+
+        Worker -->|Parses Data| Parser[Parsing Service]:::process
+        Parser -->|Validates and Maps| Validator[Validation and Transformation]:::process
+
+        Validator -->|Upserts Data| Storage[Storage and Deduplication Engine]:::storage
+        Validator -->|Logs Errors| Audit[Audit Service]:::process
     end
 
+    %% 🗄 Final Writes
     Storage -->|Saves Contacts| DB
     Audit -->|Updates Job Status| DB
+
 ```
 
 ## 5. Execution Flow
