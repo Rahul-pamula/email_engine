@@ -106,33 +106,56 @@ To intelligently support multi-tenancy alongside highly dynamic schemas (custom 
 
 ```mermaid
 flowchart TD
-    classDef client fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff;
-    classDef worker fill:#334155,stroke:#10b981,stroke-width:2px,color:#fff;
-    classDef accessible fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    %% Color Coding Class Definitions
+    classDef inputLayer fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef processLayer fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#0f172a;
+    classDef intelEngine fill:#4f46e5,stroke:#312e81,stroke-width:2px,color:#ffffff;
+    classDef feedbackLayer fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#0f172a;
+    classDef userNode fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
 
-    subgraph ClientLayer ["1. Client-Side Cognitive Management"]
-        UI[File Upload Context] -->|Chunk Pointers| SW(ServiceWorker Resiliency Cache)
-        UI --> WC(Sequential Wizard Engine<br>Linear Field Mapping)
-        UI --> EG(ARIA TreeGrid<br>Error Spatialization)
+    User([Screen Reader & Keyboard-Only Users]) ::: userNode
+
+    subgraph Layer1 ["1. Input Layer (WCAG 2.2 AA)"]
+        UploadUI["Upload UI<br>(Keyboard-Only Interaction Model)"] ::: inputLayer
+        SeqWizard["Sequential Mapping Wizard<br>(Cognitive Load Reduction)"] ::: inputLayer
     end
 
-    subgraph ServerLayer ["2. Data Pipeline"]
-        WC --> API[Ingestion Gateway]
-        SW --> API
-        API --> S3[(AWS S3 Storage)]
-        API --> Redis[Job Queue]
+    subgraph Layer2 ["2. Processing Layer"]
+        Parser["Parsing Engine<br>(Data Stream)"] ::: processLayer
+        Validator["Validation Service<br>(Syntax & Business Rules)"] ::: processLayer
+        Mapper["Field Mapping Integrator"] ::: processLayer
     end
 
-    subgraph FeedbackLayer ["3. Asynchronous Awareness"]
-        Redis --> Worker[NestJS Workers]
-        Worker --> DB[(PostgreSQL)]
-        Worker -.-> |WebSockets| SS(Socket Event Emitter)
-        SS -.-> |OS-Level Hook| ClientNotif([Global ARIA-Live Notifier])
+    subgraph Layer3 ["3. Accessibility Intelligence Layer"]
+        ContextEngine["Cognitive Context Engine<br>(Error Spatialization: Row, Column, Field Context)"] ::: intelEngine
+        GridEngine["ARIA Grid Generator<br>(Support for Large Datasets: aria-rowcount & Virtualization)"] ::: intelEngine
+        TreeGrid["ARIA TreeGrid Generator<br>(Error Navigation)"] ::: intelEngine
     end
 
-    class UI,WC,EG,ClientNotif accessible
-    class SW,S3,Redis,DB client
-    class Worker,SS,API worker
+    subgraph Layer4 ["4. Feedback Layer"]
+        VisualDash["Visual Error Dashboard<br>(High Contrast Mode)"] ::: feedbackLayer
+        AssistiveVoice["Assistive Feedback Engine<br>(Real-Time ARIA-Live Announcements)"] ::: feedbackLayer
+    end
+
+    %% Flow Execution
+    User --> UploadUI
+    UploadUI --> SeqWizard
+    SeqWizard --> Parser
+    
+    Parser --> Validator
+    Parser --> Mapper
+    
+    Validator -- "Invalid Rows" --> ContextEngine
+    Validator -- "Valid Data payload" --> GridEngine
+    Mapper --> GridEngine
+    
+    ContextEngine -- "Contextualizes Errors" --> TreeGrid
+    
+    GridEngine --> VisualDash
+    TreeGrid --> VisualDash
+    
+    GridEngine -. "Processing Status" .-> AssistiveVoice
+    TreeGrid -. "Contextual Error Alerts" .-> AssistiveVoice
 ```
 
 ### Purpose-Built Inclusivity Workflows
