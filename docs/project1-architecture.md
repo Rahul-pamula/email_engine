@@ -118,7 +118,7 @@ To intelligently support multi-tenancy alongside highly dynamic schemas (custom 
 
 *Note: Rather than reusing standard platform-wide accessibility overlays, the Data Ingestion system requires a bespoke inclusivity architecture. Managing millions of rows, background jobs, and complex field mappings presents unique cognitive and perceptive challenges that must be solved at the architectural level.*
 
-### The Ingest-Specific Inclusivity Diagram
+### Platform-Wide: Universal Accessibility Architecture
 
 ```mermaid
 flowchart TD
