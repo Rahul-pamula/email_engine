@@ -91,7 +91,7 @@ We utilize a highly secure PostgreSQL structure consistent with the platform's o
 
 ## 8. Accessibility Commitment (WCAG 2.2 AA)
 Project 2 follows the **Universal Access Flows** found in Project 3:
-- **Semantic Integrity**: Our `AccessibilityLinter` rejects any "Save" action if an image is missing an `alt` attribute or if the heading logic is skipped (e.g., jumping from H1 to H3).
+- **Semantic Integrity**: Our `AccessibilityLinter` rejects any "Save" action if an image is missing an `alt` attribute or if the heading logic is skipped.
 - **Keyboard Navigation**: The editor is fully navigable via arrows and spacebar, utilizing the "Roving Tabindex" pattern for snippet movement.
 
 ## 9. Security & RBAC
