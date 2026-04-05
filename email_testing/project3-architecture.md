@@ -1,5 +1,3 @@
-# Project 3: Email Testing System Architecture
-
 ## 1. Purpose
 The Email Testing System serves as the final validation gateway before any campaign is sent. Its primary function is to eliminate rendering inconsistencies and personalization errors across various email clients and devices, ensuring a flawless recipient experience.
 
