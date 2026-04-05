@@ -1,38 +1,257 @@
-# Git Workflow Instructions for All Teams
+# 🧠 Team Responsibilities
 
-## Branch Creation
-To create a new branch, use the following command:
-```
-git checkout -b <branch-name>
+This project is divided into **5 core modules**, each mapped to one team.
+
+---
+
+## 🟦 Team 1 – Data Uploading & Field Management
+
+📌 Core Responsibility: **Data Foundation of the Platform**
+
+### Features:
+- Upload CSV, XLS, XLSX files
+- Clean and validate headers
+- Create custom fields (Text, Email, Phone, Date, etc.)
+- Add records manually via UI
+- Strong validation & error handling
+- Accessibility-friendly forms
+
+### Tech Focus:
+- File parsing
+- Data validation
+- Database schema design (PostgreSQL)
+- Multi-tenant data handling
+
+---
+
+## 🟩 Team 2 – Email Editor (Content Creation)
+
+📌 Core Responsibility: **Email Design System**
+
+### Features:
+- Rich text editor (WYSIWYG)
+- Font styling, colors, spacing
+- Lists, links, images, attachments
+- Section-based layouts
+- Personalization tokens (e.g., {{name}})
+- AI-assisted content (optional)
+- Accessibility checks (alt text, contrast)
+
+### Tech Focus:
+- Editor frameworks (Tiptap / CKEditor / TinyMCE)
+- Template engine (MJML / React Email)
+- UI/UX design
+
+---
+
+## 🟨 Team 3 – Email Testing & Preview
+
+📌 Core Responsibility: **Quality Assurance Before Sending**
+
+### Features:
+- Email preview (Desktop & Mobile)
+- Simulate different email clients
+- Send test emails
+- Validate personalization rendering
+
+### Tech Focus:
+- Rendering engine
+- Preview system
+- Email testing logic
+
+---
+
+## 🟥 Team 4 – Email Sending & Scheduling
+
+📌 Core Responsibility: **Campaign Execution Engine**
+
+### Features:
+- Sender name & email management
+- Recipient selection (lists / individual)
+- Subject & preview text with tokens
+- Send now / schedule later
+- Time-zone support
+- Email queue system
+- Integration with providers (SES, SendGrid)
+
+### Tech Focus:
+- Background jobs (RabbitMQ / SQS)
+- Email APIs
+- Scheduling systems
+- Scalability
+
+---
+
+## 🟪 Team 5 – Analytics & Reporting
+
+📌 Core Responsibility: **Performance Tracking & Insights**
+
+### Features:
+- Track: Sent, delivered, opened, clicked
+- Bounce tracking (hard/soft)
+- Open rate, click rate
+- Time spent on email
+- Click heatmaps
+- Dashboard visualization
+
+### Tech Focus:
+- Event ingestion (webhooks)
+- Data aggregation
+- Charts (Recharts / Chart.js)
+- Analytics queries
+
+---
+
+# 🔗 How Teams Connect
+
+```mermaid
+graph LR
+    A[Team1: Data] --> B[Team2: Editor]
+    B --> C[Team3: Testing]
+    C --> D[Team4: Sending]
+    D --> E[Team5: Analytics]
 ```
 
-## Branch Switching
-To switch to an existing branch, run:
-```
-git checkout <branch-name>
+---
+
+# 🌿 Git Workflow Guide for All Teams
+
+**CRITICAL:** Each team MUST work on its own dedicated branch. Never push directly to `main`.
+
+---
+
+## 📋 Team Branches
+
+| Team | Branch Name |
+|------|-------------|
+| Team 1 | `feature/team1-data-upload` |
+| Team 2 | `feature/team2-email-editor` |
+| Team 3 | `feature/team3-testing-preview` |
+| Team 4 | `feature/team4-sending-scheduling` |
+| Team 5 | `feature/team5-analytics-reporting` |
+
+---
+
+## 🚀 Essential Git Commands
+
+### 1️⃣ Initial Setup
+
+```bash
+# Clone repository
+git clone https://github.com/Rahul-pamula/email_engine.git
+cd email_engine
+
+# List all branches
+git branch -a
+
+# Switch to your team's branch
+git switch feature/team1-data-upload
 ```
 
-## Basic Git Commands
-### Check Status
-To check the status of your repository, use:
+### 2️⃣ Before Starting Work
+
+```bash
+# Verify you're on the right branch
+git branch
+
+# Pull latest changes from main
+git pull origin main
+
+# Continue on your team's branch
+git switch feature/team1-data-upload
 ```
+
+### 3️⃣ During Development
+
+```bash
+# Check modified files
 git status
+
+# Stage all changes
+git add .
+
+# Or stage specific files
+git add src/components/FileUpload.tsx
+
+# Commit with clear message
+git commit -m "Add CSV file upload functionality"
+
+# Push ONLY to your team's branch
+git push origin feature/team1-data-upload
 ```
 
-### Add Changes
-To stage changes for commit, run:
-```
-git add <file-name>
+### 4️⃣ Sync Before Pushing
+
+```bash
+# Pull latest main to avoid conflicts
+git pull origin main
+
+# Push your updated branch
+git push origin feature/team1-data-upload
 ```
 
-### Commit Changes
-To commit your changes, use:
-```
-git commit -m "Your commit message here"
+### 5️⃣ Create Pull Request
+
+```bash
+# After pushing, go to GitHub
+# https://github.com/Rahul-pamula/email_engine/pulls
+
+# Click "New Pull Request"
+# Base: main
+# Compare: feature/team1-data-upload
+# Add description and request reviewers
 ```
 
-### Push Changes
-To push your changes to the remote repository, use:
+---
+
+## ✅ Best Practices
+
+✔️ **DO:**
+- Work only on your team's branch
+- Pull from `main` regularly
+- Write clear commit messages
+- Test before committing
+- Create PRs for code review
+
+❌ **DON'T:**
+- Push to `main` directly
+- Work on other team's branches
+- Force push without approval
+- Use vague commit messages
+
+---
+
+## 🆘 Quick Help Commands
+
+```bash
+# Current branch
+git branch
+
+# All branches
+git branch -a
+
+# Undo last commit (before push)
+git reset --soft HEAD~1
+
+# View commit history
+git log --oneline -5
+
+# See changes before commit
+git diff
+
+# Discard changes to a file
+git checkout -- filename.txt
+
+# Switch branch
+git switch feature/team1-data-upload
 ```
-git push origin <branch-name>
-```
+
+---
+
+## 📞 Support
+
+- **Merge Conflicts:** Contact your team lead
+- **Git Issues:** Slack team channel
+- **Code Review:** Tag reviewers on PR
+
+**Workflow:** Work → Commit → Push to Team Branch → Pull Request → Code Review → Merge to Main
