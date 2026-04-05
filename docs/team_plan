@@ -1,125 +1,38 @@
-# 🧠 Team Responsibilities
+# Git Workflow Instructions for All Teams
 
-This project is divided into **5 core modules**, each mapped to one team.
+## Branch Creation
+To create a new branch, use the following command:
+```
+git checkout -b <branch-name>
+```
 
----
+## Branch Switching
+To switch to an existing branch, run:
+```
+git checkout <branch-name>
+```
 
-## 🟦 Team 1 – Data Uploading & Field Management
+## Basic Git Commands
+### Check Status
+To check the status of your repository, use:
+```
+git status
+```
 
-📌 Core Responsibility: **Data Foundation of the Platform**
+### Add Changes
+To stage changes for commit, run:
+```
+git add <file-name>
+```
 
-### Features:
-- Upload CSV, XLS, XLSX files
-- Clean and validate headers
-- Create custom fields (Text, Email, Phone, Date, etc.)
-- Add records manually via UI
-- Strong validation & error handling
-- Accessibility-friendly forms
+### Commit Changes
+To commit your changes, use:
+```
+git commit -m "Your commit message here"
+```
 
-### Tech Focus:
-- File parsing
-- Data validation
-- Database schema design (PostgreSQL)
-- Multi-tenant data handling
-
-📖 Based on: Project 1 :contentReference[oaicite:1]{index=1}
-
----
-
-## 🟩 Team 2 – Email Editor (Content Creation)
-
-📌 Core Responsibility: **Email Design System**
-
-### Features:
-- Rich text editor (WYSIWYG)
-- Font styling, colors, spacing
-- Lists, links, images, attachments
-- Section-based layouts
-- Personalization tokens (e.g., {{name}})
-- AI-assisted content (optional)
-- Accessibility checks (alt text, contrast)
-
-### Tech Focus:
-- Editor frameworks (Tiptap / CKEditor / TinyMCE)
-- Template engine (MJML / React Email)
-- UI/UX design
-
-📖 Based on: Project 2 :contentReference[oaicite:2]{index=2}
-
----
-
-## 🟨 Team 3 – Email Testing & Preview
-
-📌 Core Responsibility: **Quality Assurance Before Sending**
-
-### Features:
-- Email preview:
-  - Desktop view
-  - Mobile view
-- Simulate different email clients
-- Send test emails
-- Validate personalization rendering
-
-### Tech Focus:
-- Rendering engine
-- Preview system
-- Email testing logic
-
-📖 Based on: Project 3 :contentReference[oaicite:3]{index=3}
-
----
-
-## 🟥 Team 4 – Email Sending & Scheduling
-
-📌 Core Responsibility: **Campaign Execution Engine**
-
-### Features:
-- Sender name & email management
-- Recipient selection (lists / individual)
-- Subject & preview text with tokens
-- Send now / schedule later
-- Time-zone support
-- Email queue system
-- Integration with providers (SES, SendGrid)
-
-### Tech Focus:
-- Background jobs (RabbitMQ / SQS)
-- Email APIs
-- Scheduling systems
-- Scalability
-
-📖 Based on: Project 4 :contentReference[oaicite:4]{index=4}
-
----
-
-## 🟪 Team 5 – Analytics & Reporting
-
-📌 Core Responsibility: **Performance Tracking & Insights**
-
-### Features:
-- Track:
-  - Sent, delivered, opened, clicked
-- Bounce tracking (hard/soft)
-- Open rate, click rate
-- Time spent on email
-- Click heatmaps
-- Dashboard visualization
-
-### Tech Focus:
-- Event ingestion (webhooks)
-- Data aggregation
-- Charts (Recharts / Chart.js)
-- Analytics queries
-
-📖 Based on: Project 5 :contentReference[oaicite:5]{index=5}
-
----
-
-# 🔗 How Teams Connect (IMPORTANT)
-
-```mermaid
-graph LR
-    A[Team1: Data] --> B[Team2: Editor]
-    B --> C[Team3: Testing]
-    C --> D[Team4: Sending]
-    D --> E[Team5: Analytics]
+### Push Changes
+To push your changes to the remote repository, use:
+```
+git push origin <branch-name>
+```
