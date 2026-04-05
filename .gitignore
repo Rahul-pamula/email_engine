@@ -1,10 +1,1 @@
-node_modules/
-dist/
-.env
-
-# Legacy Reference Repositories
-Sh_R_Mail/
-project3-presentation-script.md
-project3-real-world-scenarios.md
-docs/project4-architecture.md
-project1-presentation-script.md
+reference_repos/
